@@ -5,6 +5,8 @@
 OverflowAchievement adds XP, levels, achievements, and motivational UI feedback to FreeScout.
 Over 100+ Icon packs for hundreds of trophies
 Over 100+ motivation quotes for each trophies.
+Over 100+ triggers to motivate users to unlock these trophies and compete internally for collecting them!
+
 
 ![Recording 2026-02-22 152000](https://github.com/user-attachments/assets/d329039b-cad9-4090-9d49-a00ce4e4f368)
 
