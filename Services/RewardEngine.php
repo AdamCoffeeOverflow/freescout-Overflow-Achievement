@@ -15,6 +15,14 @@ class RewardEngine
     /** @var array<string, mixed> */
     protected static array $optCache = [];
 
+    /**
+     * Keep this class compatible with PHP 7.4 (FreeScout commonly supports 7.4+).
+     * Avoid PHP 8 constructor property promotion.
+     */
+    protected LevelService $levelService;
+
+    protected QuoteService $quoteService;
+
     protected function installed(): bool
     {
         // Cache within request to avoid repeated schema queries.
@@ -82,10 +90,11 @@ class RewardEngine
         return $xp > 0;
     }
 
-    public function __construct(
-        protected LevelService $levelService,
-        protected QuoteService $quoteService
-    ) {}
+    public function __construct(LevelService $levelService, QuoteService $quoteService)
+    {
+        $this->levelService = $levelService;
+        $this->quoteService = $quoteService;
+    }
 
     // -----------------------------
     // Primary actions (existing)
