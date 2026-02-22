@@ -3,7 +3,7 @@
   "alias": "overflowachievement",
   "description": "Gamified achievements, levels, and motivational quotes for FreeScout users.",
   "version": "1.1.0",
-  "detailsUrl": "https://github.com/AdamCoffeeOverflow/OverflowAchievement",
+  "detailsUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/releases",
   "author": "AdamCoffeeOverflow",
   "authorUrl": "https://github.com/AdamCoffeeOverflow",
   "requiredAppVersion": "1.8.205",
@@ -25,6 +25,6 @@
   ],
   "requires": [],
   "img": "/modules/overflowachievement/img/icon.png",
-  "latestVersionUrl": "https://raw.githubusercontent.com/AdamCoffeeOverflow/OverflowAchievement/main/module.json",
-  "latestVersionZipUrl": "https://github.com/AdamCoffeeOverflow/OverflowAchievement/archive/refs/heads/main.zip"
+  "latestVersionUrl": "https://raw.githubusercontent.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/main/module.json",
+  "latestVersionZipUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/archive/refs/heads/main.zip"
 }
