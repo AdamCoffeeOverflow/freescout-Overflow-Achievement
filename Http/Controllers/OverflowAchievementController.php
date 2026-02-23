@@ -156,9 +156,14 @@ class OverflowAchievementController extends Controller
             ->limit(50)
             ->get();
 
+        // Keep this list short so the page stays snappy and the UI doesn't look "infinite".
+        // (If you ever want a full history, implement pagination or a dedicated "All trophies" page.)
+        $recent_unlocks_limit = (int)config('overflowachievement.ui.recent_trophies_limit', 5);
+        $recent_unlocks_limit = max(1, min(50, $recent_unlocks_limit));
+
         $recent_unlocks = UnlockedAchievement::query()
             ->orderByDesc('unlocked_at')
-            ->limit(30)
+            ->limit($recent_unlocks_limit)
             ->get();
 
         // Load only the users we actually display (performance on large user tables).
@@ -169,11 +174,35 @@ class OverflowAchievementController extends Controller
             ->values()
             ->toArray();
 
-        $users = \App\User::query()
-            ->where('status', \App\User::STATUS_ACTIVE)
+        // Do NOT limit this to *active* users, otherwise the leaderboard can show #ID for inactive/disabled users.
+        // However, we DO want to exclude pseudo-users created by modules (e.g. Teams) that are stored in `users`
+        // but should not appear as agents.
+        //
+        // Teams module marks team records as:
+        // - status = STATUS_DELETED (to hide them from normal user lists)
+        // - type   = TYPE_ROBOT
+        //
+        // So here we include disabled users, but exclude deleted + robot records.
+        $usersQuery = \App\User::query()
             ->whereIn('id', $userIds)
-            ->get()
-            ->keyBy('id');
+            ->where('status', '!=', \App\User::STATUS_DELETED);
+
+        // `type` column/constant may not exist in very old FreeScout installs, so guard it.
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'type') && defined(\App\User::class.'::TYPE_ROBOT')) {
+                $usersQuery->where('type', '!=', \App\User::TYPE_ROBOT);
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        $users = $usersQuery->get()->keyBy('id');
+
+        // Drop any leaderboard rows that don't map to a real agent user.
+        // (Prevents showing team pseudo-users or any orphaned stats.)
+        $allowedIds = $users->keys()->all();
+        $top = $top->whereIn('user_id', $allowedIds)->values();
+        $recent_unlocks = $recent_unlocks->whereIn('user_id', $allowedIds)->values();
 
         $def_keys = $recent_unlocks->pluck('achievement_key')->filter(function ($k) {
             return !str_starts_with((string)$k, 'level_up_');

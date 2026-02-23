@@ -50,4 +50,7 @@ PostgreSQL is supported.
 The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade.
 
 ## Version
-- Current version: **1.1.0**
+- Current version: **1.1.2**
+## Compatibility With Freescout Module(s)
+- Teams Module
+- Custom Field Module

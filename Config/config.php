@@ -211,6 +211,10 @@ return [
         // When enabled, show up to toast_stack_max achievement toasts at once.
         'toast_stack_enabled' => false,
         'toast_stack_max' => 2,
+
+        // Leaderboard UI
+        // How many items to show in the "Recent Trophies" column.
+        'recent_trophies_limit' => 10,
     ],
 
     // Quote display

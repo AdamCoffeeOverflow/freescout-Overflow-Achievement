@@ -35,15 +35,20 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($top as $i => $row)
-                                        @php $u = $users[$row->user_id] ?? null; @endphp
+                                        @php
+                                            $u = $users[$row->user_id] ?? null;
+                                            $name = '';
+                                            if ($u) {
+                                                $name = trim(($u->first_name ?? '').' '.($u->last_name ?? ''));
+                                                if ($name === '') {
+                                                    $name = (string)($u->email ?? '');
+                                                }
+                                            }
+                                        @endphp
                                         <tr>
                                             <td>{{ $i+1 }}</td>
                                             <td>
-                                                @if ($u)
-                                                    {{ $u->first_name }} {{ $u->last_name }}
-                                                @else
-                                                    #{{ $row->user_id }}
-                                                @endif
+                                                {{ $name !== '' ? $name : ('#'.$row->user_id) }}
                                             </td>
                                             <td><span class="oa-pill">Lv {{ (int)$row->level }}</span></td>
                                             <td>{{ (int)$row->xp_total }}</td>
@@ -70,6 +75,13 @@
                                     $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
                                     $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');
                                     $u = $users[$row->user_id] ?? null;
+                                    $name = '';
+                                    if ($u) {
+                                        $name = trim(($u->first_name ?? '').' '.($u->last_name ?? ''));
+                                        if ($name === '') {
+                                            $name = (string)($u->email ?? '');
+                                        }
+                                    }
                                 @endphp
                                 <div class="oa-feed-item oa-r-{{ $rarity }}">
                                     <div class="oa-feed-icon">
@@ -108,7 +120,7 @@
                                     <div class="oa-feed-body">
                                         <div class="oa-feed-title">{{ $title }}</div>
                                         <div class="oa-feed-meta">
-                                            {{ $u ? ($u->first_name.' '.$u->last_name) : ('#'.$row->user_id) }} • {{ (!empty($row->unlocked_at) && method_exists($row->unlocked_at, 'diffForHumans')) ? $row->unlocked_at->diffForHumans() : '' }}
+                                            {{ $name !== '' ? $name : ('#'.$row->user_id) }} • {{ (!empty($row->unlocked_at) && method_exists($row->unlocked_at, 'diffForHumans')) ? $row->unlocked_at->diffForHumans() : '' }}
                                         </div>
                                     </div>
                                 </div>
