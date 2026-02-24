@@ -51,6 +51,21 @@ class OverflowAchievementController extends Controller
         ]);
     }
 
+    /**
+     * Render the achievements overview page for the authenticated user.
+     *
+     * If the achievements table is not present, renders the installation-needed view.
+     *
+     * The view receives:
+     * - `defs`: active achievement definitions ordered by rarity, trigger, and threshold.
+     * - `unlocked`: unlocked achievements for the user keyed by achievement key.
+     * - `counts`: per-trigger progress counts derived from the user's stats (when available).
+     * - `quotes_by_key`: pre-resolved quotes for unlocked achievements (may be empty on error).
+     * - `trigger_labels` and `trigger_hints`: UI labels and hints from configuration.
+     *
+     * @param \Illuminate\Http\Request $request The current HTTP request (used to obtain the authenticated user).
+     * @return \Illuminate\View\View|\Illuminate\Contracts\View\View The rendered achievements or install-needed view.
+     */
     public function achievements(Request $request)
     {
         if (!Schema::hasTable('overflowachievement_achievements')) {
@@ -117,13 +132,17 @@ class OverflowAchievementController extends Controller
             ->get()
             ->keyBy('achievement_key');
 
-        // Pre-resolve quotes per achievement so the cabinet can show them for unlocked trophies.
-        // This keeps Blade simple and ensures we don't show quotes for locked items.
+        // Pre-resolve quotes only for unlocked trophies.
+        // Blade falls back when a key is missing, so locked trophies never expose a quote.
         $quotes_by_key = [];
         try {
             /** @var QuoteService $qs */
             $qs = app(QuoteService::class);
+            $unlocked_keys = array_fill_keys($unlocked->keys()->all(), true);
             foreach ($defs as $def) {
+                if (!isset($unlocked_keys[$def->key])) {
+                    continue;
+                }
                 $quotes_by_key[$def->key] = $qs->forAchievement($def);
             }
         } catch (\Throwable $e) {
