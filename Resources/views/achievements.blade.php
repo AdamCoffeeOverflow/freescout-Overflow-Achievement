@@ -34,7 +34,7 @@
                         $rar = $def->rarity ?? 'common';
                         $cardClass = $is_unlocked ? 'oa-card-unlocked' : 'oa-card-locked';
 
-                        // Quote is shown only for unlocked trophies.
+                        // Quote is shown only for unlocked trophies; missing quote keys safely fall back to empty strings.
                         $q = $is_unlocked ? ($quotes_by_key[$def->key] ?? null) : null;
                         $quote_text = (!empty($q) && !empty($q['text'])) ? (string)$q['text'] : '';
                         $quote_author = (!empty($q) && !empty($q['author'])) ? (string)$q['author'] : '';

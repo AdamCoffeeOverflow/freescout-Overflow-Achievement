@@ -117,13 +117,17 @@ class OverflowAchievementController extends Controller
             ->get()
             ->keyBy('achievement_key');
 
-        // Pre-resolve quotes per achievement so the cabinet can show them for unlocked trophies.
-        // This keeps Blade simple and ensures we don't show quotes for locked items.
+        // Pre-resolve quotes only for unlocked trophies.
+        // Blade falls back when a key is missing, so locked trophies never expose a quote.
         $quotes_by_key = [];
         try {
             /** @var QuoteService $qs */
             $qs = app(QuoteService::class);
+            $unlocked_keys = array_fill_keys($unlocked->keys()->all(), true);
             foreach ($defs as $def) {
+                if (!isset($unlocked_keys[$def->key])) {
+                    continue;
+                }
                 $quotes_by_key[$def->key] = $qs->forAchievement($def);
             }
         } catch (\Throwable $e) {
