@@ -1,5 +1,10 @@
 # Changelog — OverflowAchievement
 
+## [1.1.2] - 2026-02-23
+
+Fixed compatibility issue with Team Module (Freescout Paid Module)
+Fixed Recent Trophy listing endlessly the earned achievements by users - capped it to 10 recent instead.
+
 ## [1.1.0] — 2026-02-21
 
 This release is a **structural + performance** cleanup focused on correctness, PostgreSQL safety, and a simpler settings experience.
