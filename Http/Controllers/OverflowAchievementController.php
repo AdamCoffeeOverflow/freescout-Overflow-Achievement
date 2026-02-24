@@ -51,6 +51,21 @@ class OverflowAchievementController extends Controller
         ]);
     }
 
+    /**
+     * Render the achievements overview page for the authenticated user.
+     *
+     * If the achievements table is not present, renders the installation-needed view.
+     *
+     * The view receives:
+     * - `defs`: active achievement definitions ordered by rarity, trigger, and threshold.
+     * - `unlocked`: unlocked achievements for the user keyed by achievement key.
+     * - `counts`: per-trigger progress counts derived from the user's stats (when available).
+     * - `quotes_by_key`: pre-resolved quotes for unlocked achievements (may be empty on error).
+     * - `trigger_labels` and `trigger_hints`: UI labels and hints from configuration.
+     *
+     * @param \Illuminate\Http\Request $request The current HTTP request (used to obtain the authenticated user).
+     * @return \Illuminate\View\View|\Illuminate\Contracts\View\View The rendered achievements or install-needed view.
+     */
     public function achievements(Request $request)
     {
         if (!Schema::hasTable('overflowachievement_achievements')) {
