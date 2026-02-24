@@ -276,8 +276,8 @@ class OverflowAchievementController extends Controller
         $batch_mode = filter_var($request->input('batch'), FILTER_VALIDATE_BOOLEAN)
             || (string)$request->input('mode') === 'batch';
 
-        // Fetch unseen unlocks. If the definitions table exists, join it to avoid a second query.
-        // This endpoint is polled, so keeping query count low matters.
+        // Query #1 (bounded payload): keep delivery capped so polling stays cheap for UI throughput.
+        // We still need a second aggregate query below to compute an accurate pre-burst XP baseline.
         if (Schema::hasTable('overflowachievement_achievements')) {
             $items = UnlockedAchievement::query()
                 ->leftJoin('overflowachievement_achievements as a', 'a.key', '=', 'overflowachievement_unlocked.achievement_key')
@@ -306,11 +306,23 @@ class OverflowAchievementController extends Controller
                 ->get();
         }
 
+        // Query #2 (full backlog aggregate): derive the real "before" stat from *all* unseen unlocks
+        // matching this filter, even if we only return the first 10 rows in this response.
+        $preciseReplay = Schema::hasTable('overflowachievement_achievements');
+        $fullUnseenReward = 0;
+        if ($preciseReplay) {
+            $fullUnseenReward = (int)(UnlockedAchievement::query()
+                ->leftJoin('overflowachievement_achievements as a', 'a.key', '=', 'overflowachievement_unlocked.achievement_key')
+                ->where('overflowachievement_unlocked.user_id', $user->id)
+                ->whereNull('overflowachievement_unlocked.seen_at')
+                ->where('overflowachievement_unlocked.achievement_key', 'not like', 'level_up_%')
+                ->sum('a.xp_reward') ?? 0);
+        }
+
         // Calculate per-item XP/level snapshots so multiple queued toasts feel like real progression.
-        // We can infer the "before" xp_total by subtracting the sum of xp_reward for unseen achievements
-        // from the current xp_total. Then we replay rewards in unlock order.
+        // If definitions are unavailable, fall back to reward data from returned rows only.
         $rewardByRowId = [];
-        $totalReward = 0;
+        $returnedReward = 0;
 
         foreach ($items as $row) {
             $xp = 0;
@@ -318,12 +330,16 @@ class OverflowAchievementController extends Controller
                 $xp = (int)$row->def_xp_reward;
             }
             $rewardByRowId[$row->id] = $xp;
-            $totalReward += $xp;
+            $returnedReward += $xp;
+        }
+
+        if (!$preciseReplay) {
+            $fullUnseenReward = $returnedReward;
         }
 
         // "Before" snapshot for smooth client-side XP bar animation.
         // This matters when the page was reloaded and the client has no previous stat.
-        $before_xp = max(0, (int)$stat->xp_total - (int)$totalReward);
+        $before_xp = max(0, (int)$stat->xp_total - (int)$fullUnseenReward);
         $before_lvl = $levels->levelForXp((int)$before_xp);
         $before_cur_min = $levels->levelMinXp((int)$before_lvl);
         $before_next_min = $levels->nextLevelMinXp((int)$before_lvl);
@@ -338,7 +354,7 @@ class OverflowAchievementController extends Controller
             'progress' => (int)$before_progress,
         ];
 
-        $runningXp = max(0, (int)$stat->xp_total - (int)$totalReward);
+        $runningXp = max(0, (int)$stat->xp_total - (int)$fullUnseenReward);
 
         $payload = $items->map(function ($row) use ($levels, &$runningXp, $rewardByRowId) {
             $key = (string)$row->achievement_key;
