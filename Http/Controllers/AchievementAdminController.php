@@ -215,19 +215,23 @@ class AchievementAdminController extends Controller
         }
 
         $files = glob(rtrim($packPath, '/').'/icon_*.png') ?: [];
+        $files = array_map('basename', $files);
+        natsort($files);
+        $files = array_values($files);
         $count = count($files);
         if ($count <= 0) {
             return redirect()->back()->with('error', __('Icon pack folder is missing or empty.'));
         }
 
         $updated = 0;
-        Achievement::query()->select(['id','key'])->orderBy('id')->chunk(200, function ($rows) use ($count, &$updated) {
+        Achievement::query()->select(['id','key'])->orderBy('id')->chunk(200, function ($rows) use ($files, $count, &$updated) {
             foreach ($rows as $a) {
                 $key = (string)$a->key;
                 // crc32 may return signed int in PHP; normalize to unsigned via sprintf.
                 $hash = (int)sprintf('%u', crc32($key));
-                $idx = ($hash % $count) + 1; // 1..$count
-                $fn = sprintf('icon_%03d.png', $idx);
+                // Count-based synthetic names fail if pack numbering has gaps.
+                $idx = $hash % $count;
+                $fn = $files[$idx];
 
                 Achievement::query()->where('id', $a->id)->update([
                     'icon_type' => 'img',
