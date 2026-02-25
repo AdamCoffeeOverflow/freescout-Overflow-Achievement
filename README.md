@@ -38,9 +38,7 @@ This package is intended to be the **single distribution** for both:
 3. Run migrations:
    - `php artisan migrate`
 4. Clear caches:
-   - `php artisan cache:clear`
-   - `php artisan view:clear`
-   - `php artisan config:clear`
+ -  php artisan freescout:clear-cache
 5. Rebuild module assets (recommended when updating):
    - `php artisan freescout:module-build`
 
