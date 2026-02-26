@@ -1,30 +1,30 @@
 {
-    "name": "OverflowAchievement",
-    "alias": "overflowachievement",
-    "description": "Gamified achievements, levels, and motivational quotes for FreeScout users.",
-    "version": "1.1.6",
-    "detailsUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/releases",
-    "author": "AdamCoffeeOverflow",
-    "authorUrl": "https://github.com/AdamCoffeeOverflow",
-    "requiredAppVersion": "1.8.205",
-    "license": "AGPL-3.0",
-    "keywords": [
-        "achievement",
-        "gamification",
-        "xp",
-        "levels"
-    ],
-    "active": 0,
-    "order": 0,
-    "providers": [
-        "Modules\\OverflowAchievement\\Providers\\OverflowAchievementServiceProvider"
-    ],
-    "aliases": {},
-    "files": [
-        "start.php"
-    ],
-    "requires": [],
-    "img": "/modules/overflowachievement/img/icon.png",
-    "latestVersionUrl": "https://raw.githubusercontent.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/main/module.json",
-    "latestVersionZipUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/latest/download/OverflowAchievement.zip"
+  "name": "OverflowAchievement",
+  "alias": "overflowachievement",
+  "description": "Gamified achievements, levels, and motivational quotes for FreeScout users.",
+  "version": "1.1.7",
+  "detailsUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/releases",
+  "author": "AdamCoffeeOverflow",
+  "authorUrl": "https://github.com/AdamCoffeeOverflow",
+  "requiredAppVersion": "1.8.205",
+  "license": "AGPL-3.0",
+  "keywords": [
+    "achievement",
+    "gamification",
+    "xp",
+    "levels"
+  ],
+  "active": 0,
+  "order": 0,
+  "providers": [
+    "Modules\\OverflowAchievement\\Providers\\OverflowAchievementServiceProvider"
+  ],
+  "aliases": {},
+  "files": [
+    "start.php"
+  ],
+  "requires": [],
+  "img": "/modules/overflowachievement/img/icon.png",
+  "latestVersionUrl": "https://raw.githubusercontent.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/main/module.json",
+  "latestVersionZipUrl": "https://github.com/AdamCoffeeOverflow/freescout-Overflow-Achievement/releases/latest/download/OverflowAchievement.zip"
 }
