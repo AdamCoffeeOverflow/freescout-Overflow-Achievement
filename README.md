@@ -36,11 +36,9 @@ This package is intended to be the **single distribution** for both:
 1. Copy `OverflowAchievement/` into your FreeScout `Modules/` directory.
 2. In FreeScout: **Manage → Modules** → Activate (or Update).
 3. Run migrations:
-   - `php artisan migrate`
+   - `php artisan migrate` (if applicable)
 4. Clear caches:
    - `php artisan cache:clear`
-   - `php artisan view:clear`
-   - `php artisan config:clear`
 5. Rebuild module assets (recommended when updating):
    - `php artisan freescout:module-build`
 
@@ -50,7 +48,7 @@ PostgreSQL is supported.
 The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade.
 
 ## Version
-- Current version: **1.1.3**
+- Current version: **1.1.6**
 ## Compatibility With Freescout Module(s)
 - Teams Module
 - Custom Field Module
