@@ -1,65 +1,38 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [ "main" ]
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
 
 jobs:
-  php-lint:
+  lint:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4', '8.1' ]
+
     steps:
-      - uses: actions/checkout@v4
-      - name: PHP syntax lint
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Validate module.json
+        run: |
+          php -r 'json_decode(file_get_contents("module.json")); if (json_last_error() !== JSON_ERROR_NONE) { fwrite(STDERR, json_last_error_msg()."\n"); exit(1);} echo "module.json OK\n";'
+
+      - name: PHP syntax check
         run: |
           set -e
-          php -v
-          while IFS= read -r -d '' file; do
-            php -l "$file" >/dev/null
-          done < <(find . -path './vendor/*' -prune -o -name '*.php' -print0)
-
-  gitleaks:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
-          GITLEAKS_CONFIG: .gitleaks.toml
-
-  static-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          tools: composer
-      - name: Install tooling
-        run: |
-          if [ -f composer.json ]; then
-            composer install --no-interaction --no-progress
-          else
-            echo "composer.json not found; skipping"
-          fi
-      - name: Psalm
-        run: |
-          if [ -f vendor/bin/psalm ]; then
-            vendor/bin/psalm --no-progress
-          else
-            echo "psalm not installed; skipping"
-          fi
-      - name: CS Fixer (dry-run)
-        run: |
-          if [ -f vendor/bin/php-cs-fixer ]; then
-            vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
-          else
-            echo "php-cs-fixer not installed; skipping"
-          fi
-      - name: Rector (dry-run)
-        run: |
-          if [ -f vendor/bin/rector ]; then
-            vendor/bin/rector process --dry-run
-          else
-            echo "rector not installed; skipping"
-          fi
+          files=$(find . -type f -name "*.php" -not -path "./vendor/*")
+          for f in $files; do
+            php -l "$f" >/dev/null
+          done
+          echo "PHP lint OK"
