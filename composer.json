@@ -1,20 +1,24 @@
 {
-  "name": "freescout/overflowachievement",
-  "description": "Gamified achievements, levels, and motivational quotes for FreeScout users.",
-  "type": "freescout-module",
-  "license": "AGPL-3.0",
-  "autoload": {
-    "psr-4": {
-      "Modules\\OverflowAchievement\\": ""
+  "name": "local/freescout-module-tools",
+  "description": "Dev tooling for FreeScout modules (repo-only)",
+  "type": "project",
+  "require": {},
+  "require-dev": {
+    "vimeo/psalm": "^5.26",
+    "friendsofphp/php-cs-fixer": "^3.60",
+    "rector/rector": "^1.2"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/package-versions-deprecated": true
     }
   },
-  "extra": {
-    "laravel": {
-      "providers": [
-        "Modules\\OverflowAchievement\\Providers\\OverflowAchievementServiceProvider"
-      ],
-      "aliases": {}
-    }
-  },
-  "require": {}
+  "scripts": {
+    "lint": "php -d detect_unicode=0 -l $(find . -path './vendor/*' -prune -o -name '*.php' -print)",
+    "psalm": "vendor/bin/psalm --no-progress",
+    "cs:check": "vendor/bin/php-cs-fixer fix --dry-run --diff --verbose",
+    "cs:fix": "vendor/bin/php-cs-fixer fix --verbose",
+    "rector:dry": "vendor/bin/rector process --dry-run"
+  }
 }

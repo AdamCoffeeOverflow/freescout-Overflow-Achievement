@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow common false positives"
+paths = [
+  '''vendor/''',
+  '''node_modules/''',
+  '''public/vendor/'''
+]

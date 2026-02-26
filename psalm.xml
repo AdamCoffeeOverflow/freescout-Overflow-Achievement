@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<psalm
+  errorLevel="4"
+  resolveFromConfigFile="true"
+  findUnusedCode="false"
+>
+  <projectFiles>
+    <directory name="."/>
+    <ignoreFiles>
+      <directory name="vendor"/>
+      <directory name="node_modules"/>
+      <directory name="public/vendor"/>
+    </ignoreFiles>
+  </projectFiles>
+</psalm>

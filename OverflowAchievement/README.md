@@ -38,7 +38,9 @@ This package is intended to be the **single distribution** for both:
 3. Run migrations:
    - `php artisan migrate`
 4. Clear caches:
- -  php artisan freescout:clear-cache
+   - `php artisan cache:clear`
+   - `php artisan view:clear`
+   - `php artisan config:clear`
 5. Rebuild module assets (recommended when updating):
    - `php artisan freescout:module-build`
 
@@ -48,7 +50,7 @@ PostgreSQL is supported.
 The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade.
 
 ## Version
-- Current version: **1.1.5**
+- Current version: **1.1.3**
 ## Compatibility With Freescout Module(s)
 - Teams Module
 - Custom Field Module
