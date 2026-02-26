@@ -1,0 +1,10 @@
+# CodeRabbit configuration
+reviews:
+  auto_review:
+    enabled: true
+  path_filters:
+    - "**/*.php"
+    - "**/*.js"
+    - "**/*.css"
+    - "**/*.blade.php"
+    - "**/*.json"
