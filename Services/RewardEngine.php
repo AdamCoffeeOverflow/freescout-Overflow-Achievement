@@ -3,6 +3,7 @@
 namespace Modules\OverflowAchievement\Services;
 
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Modules\OverflowAchievement\Entities\Achievement;
@@ -260,11 +261,6 @@ class RewardEngine
         }
     }
 
-    /**
-     * Customer replied in a conversation assigned to the user.
-     * This is a "workload" signal; keep XP low and cap per conversation per day.
-     */
-    
     // -----------------------------
     // SLA / quality triggers
     // -----------------------------
@@ -283,7 +279,10 @@ class RewardEngine
             return;
         }
 
-        $replyAt = $reply_at ? Carbon::parse($reply_at) : Carbon::now();
+        $replyAt = $reply_at ? $this->parseDateSafe($reply_at) : Carbon::now();
+        if (!$replyAt) {
+            return;
+        }
 
         $lastCustomerReply = Event::query()
             ->where('user_id', $user_id)
@@ -297,14 +296,15 @@ class RewardEngine
             return;
         }
 
-        $crAt = Carbon::parse($lastCustomerReply->created_at);
+        $crAt = $this->parseDateSafe($lastCustomerReply->created_at);
+        if (!$crAt) {
+            return;
+        }
         $mins = (int)max(0, $crAt->diffInMinutes($replyAt, false));
         if ($mins < 0) {
             // reply before customer reply (should not happen)
             return;
         }
-
-        $awardedUltra = false;
 
         $ultra = (int)$this->opt('sla.fast_reply_ultra_minutes', (int)config('overflowachievement.sla.fast_reply_ultra_minutes', 5));
         $fast  = (int)$this->opt('sla.fast_reply_minutes', (int)config('overflowachievement.sla.fast_reply_minutes', 30));
@@ -329,21 +329,8 @@ class RewardEngine
                 if ($stat) {
                     $this->evaluateTriggeredAchievements($user_id, 'sla_fast_reply_ultra', (int)($stat->sla_fast_reply_ultra_count ?? 0));
                 }
+                return;
             }
-                $awardedUltra = true;
-        }
-
-        
-
-        if ($awardedUltra) {
-            return;
-                $awardedUltraFirst = true;
-        }
-
-        
-
-        if ($awardedUltraFirst) {
-            return;
         }
 
         if ($fast > 0 && $mins <= $fast) {
@@ -383,14 +370,15 @@ class RewardEngine
             return;
         }
 
-        $createdAt = Carbon::parse($conversation_created_at);
-        $replyAt = Carbon::parse($reply_at);
+        $createdAt = $this->parseDateSafe($conversation_created_at);
+        $replyAt = $this->parseDateSafe($reply_at);
+        if (!$createdAt || !$replyAt) {
+            return;
+        }
         $mins = (int)max(0, $createdAt->diffInMinutes($replyAt, false));
         if ($mins < 0) {
             return;
         }
-
-        $awardedUltraFirst = false;
 
         $ultra = (int)$this->opt('sla.first_response_ultra_minutes', (int)config('overflowachievement.sla.first_response_ultra_minutes', 5));
         $fast  = (int)$this->opt('sla.first_response_fast_minutes', (int)config('overflowachievement.sla.first_response_fast_minutes', 30));
@@ -411,21 +399,8 @@ class RewardEngine
                 if ($stat) {
                     $this->evaluateTriggeredAchievements($user_id, 'sla_first_response_ultra', (int)($stat->sla_first_response_ultra_count ?? 0));
                 }
+                return;
             }
-                $awardedUltra = true;
-        }
-
-        
-
-        if ($awardedUltra) {
-            return;
-                $awardedUltraFirst = true;
-        }
-
-        
-
-        if ($awardedUltraFirst) {
-            return;
         }
 
         if ($fast > 0 && $mins <= $fast) {
@@ -462,14 +437,15 @@ class RewardEngine
             return;
         }
 
-        $createdAt = Carbon::parse($conversation_created_at);
-        $closedAt = $closed_at ? Carbon::parse($closed_at) : Carbon::now();
+        $createdAt = $this->parseDateSafe($conversation_created_at);
+        $closedAt = $closed_at ? $this->parseDateSafe($closed_at) : Carbon::now();
+        if (!$createdAt || !$closedAt) {
+            return;
+        }
         $hours = (int)max(0, $createdAt->diffInHours($closedAt, false));
         if ($hours < 0) {
             return;
         }
-
-        $awardedRapid = false;
 
         $h4  = (int)$this->opt('sla.resolve_4h_hours', (int)config('overflowachievement.sla.resolve_4h_hours', 4));
         $h24 = (int)$this->opt('sla.resolve_24h_hours', (int)config('overflowachievement.sla.resolve_24h_hours', 24));
@@ -490,12 +466,6 @@ class RewardEngine
                     $this->evaluateTriggeredAchievements($user_id, 'sla_resolve_4h', (int)($stat->sla_resolve_4h_count ?? 0));
                 }
             }
-                $awardedRapid = true;
-        }
-
-        
-
-        if ($awardedRapid) {
             return;
         }
 
@@ -517,7 +487,7 @@ class RewardEngine
             }
         }
     }
-public function awardCustomerReplied(int $user_id, int $conversation_id): void
+    public function awardCustomerReplied(int $user_id, int $conversation_id): void
     {
         if (!(bool)$this->opt('enabled', config('overflowachievement.enabled'))) {
             return;
@@ -1057,6 +1027,50 @@ public function awardCustomerReplied(int $user_id, int $conversation_id): void
         return (bool)$query->skip($max - 1)->take(1)->exists();
     }
 
+    /**
+     * Safe Carbon parse for untrusted date inputs.
+     * Returns null instead of throwing to keep award paths fail-safe.
+     */
+    protected function parseDateSafe($value): ?Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value->copy();
+        }
+
+        if ($value instanceof DateTimeInterface) {
+            return Carbon::instance($value);
+        }
+
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            try {
+                return Carbon::createFromTimestamp((int)$value);
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        if (!is_string($value)) {
+            // Reject arrays/objects to avoid magic string coercion side effects.
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '' || strlen($value) > 128) {
+            return null;
+        }
+
+        // Disallow relative formats (e.g. "tomorrow") for deterministic SLA calculations.
+        if (Carbon::hasRelativeKeywords($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
 
     /**
      * Awards XP (respecting caps), updates stats (xp, level, counters, streak), and logs an event.
@@ -1364,7 +1378,11 @@ public function awardCustomerReplied(int $user_id, int $conversation_id): void
                 return;
             }
 
-            if (!Schema::hasTable('overflowachievement_achievements')) {
+            static $hasAchievementsTable = null;
+            if ($hasAchievementsTable === null) {
+                $hasAchievementsTable = Schema::hasTable('overflowachievement_achievements');
+            }
+            if (!$hasAchievementsTable) {
                 return;
             }
 
@@ -1378,9 +1396,13 @@ public function awardCustomerReplied(int $user_id, int $conversation_id): void
                     ->get();
             }
 
-            $achievements = $trigger_cache[$trigger]->filter(function ($a) use ($value) {
-                return (int)($a->threshold ?? 0) <= $value;
-            })->values();
+            $achievements = collect();
+            foreach ($trigger_cache[$trigger] as $achievement) {
+                if ((int)($achievement->threshold ?? 0) > $value) {
+                    break;
+                }
+                $achievements->push($achievement);
+            }
 
             if ($achievements->isEmpty()) {
                 return;
@@ -1406,7 +1428,9 @@ public function awardCustomerReplied(int $user_id, int $conversation_id): void
                 $this->unlockAchievement($user_id, $achievement);
             }
         } catch (\Throwable $e) {
-            \Log::error('OverflowAchievement: evaluateTriggeredAchievements failed: '.$e->getMessage());
+            \Log::error('OverflowAchievement: evaluateTriggeredAchievements failed', [
+                'exception' => get_class($e),
+            ]);
         }
     }
 
