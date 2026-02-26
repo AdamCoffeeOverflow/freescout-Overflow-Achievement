@@ -1,9 +1,0 @@
-parameters:
-  level: 5
-  paths:
-    - .
-  excludePaths:
-    - vendor
-    - node_modules
-    - public/vendor
-  scanFiles: []

@@ -1,0 +1,5 @@
+/vendor/**/.git
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
