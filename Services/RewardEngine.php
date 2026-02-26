@@ -304,8 +304,6 @@ class RewardEngine
             return;
         }
 
-        $awardedUltra = false;
-
         $ultra = (int)$this->opt('sla.fast_reply_ultra_minutes', (int)config('overflowachievement.sla.fast_reply_ultra_minutes', 5));
         $fast  = (int)$this->opt('sla.fast_reply_minutes', (int)config('overflowachievement.sla.fast_reply_minutes', 30));
 
@@ -330,19 +328,7 @@ class RewardEngine
                     $this->evaluateTriggeredAchievements($user_id, 'sla_fast_reply_ultra', (int)($stat->sla_fast_reply_ultra_count ?? 0));
                 }
             }
-                $awardedUltra = true;
-        }
 
-        
-
-        if ($awardedUltra) {
-            return;
-                $awardedUltraFirst = true;
-        }
-
-        
-
-        if ($awardedUltraFirst) {
             return;
         }
 
@@ -390,8 +376,6 @@ class RewardEngine
             return;
         }
 
-        $awardedUltraFirst = false;
-
         $ultra = (int)$this->opt('sla.first_response_ultra_minutes', (int)config('overflowachievement.sla.first_response_ultra_minutes', 5));
         $fast  = (int)$this->opt('sla.first_response_fast_minutes', (int)config('overflowachievement.sla.first_response_fast_minutes', 30));
 
@@ -412,19 +396,7 @@ class RewardEngine
                     $this->evaluateTriggeredAchievements($user_id, 'sla_first_response_ultra', (int)($stat->sla_first_response_ultra_count ?? 0));
                 }
             }
-                $awardedUltra = true;
-        }
 
-        
-
-        if ($awardedUltra) {
-            return;
-                $awardedUltraFirst = true;
-        }
-
-        
-
-        if ($awardedUltraFirst) {
             return;
         }
 
@@ -1444,51 +1416,4 @@ public function awardCustomerReplied(int $user_id, int $conversation_id): void
         }
     }
 
-    protected function inferThemeFromTrigger(string $trigger): string
-    {
-        switch ($trigger) {
-            case 'conversation_created':
-                return 'initiative';
-            case 'subject_changed':
-                return 'clarity';
-            case 'first_reply':
-                return 'speed';
-            case 'close_conversation':
-                return 'quality';
-            case 'note_added':
-                return 'focus';
-            case 'assigned':
-                return 'ownership';
-            case 'merged':
-                return 'order';
-            case 'moved':
-                return 'flow';
-            case 'forwarded':
-                return 'clarity';
-            case 'attachment_added':
-                return 'craft';
-            case 'customer_created':
-            case 'customer_updated':
-                return 'care';
-            case 'streak_days':
-                return 'consistency';
-            case 'actions_total':
-                return 'momentum';
-            case 'xp_total':
-                return 'mastery';
-            default:
-                return 'generic';
-        }
-    }
-
-    protected function recentQuoteIds(int $user_id, int $limit = 10): array
-    {
-        return UnlockedAchievement::query()
-            ->where('user_id', $user_id)
-            ->whereNotNull('quote_id')
-            ->orderByDesc('unlocked_at')
-            ->limit($limit)
-            ->pluck('quote_id')
-            ->toArray();
-    }
 }
