@@ -14,13 +14,13 @@ Over 100+ triggers to motivate users to unlock these trophies and compete intern
 Toast notification for achievement trophy unlocked
 Toast notification for level reach
 
-<img width="800" height="422" alt="Screenshot 2026-02-22 151614" src="https://github.com/user-attachments/assets/59de2201-ac51-45ae-9306-c6aafab1e2cf" />
+<img width="800" height="622" alt="Screenshot 2026-02-22 151614" src="https://github.com/user-attachments/assets/59de2201-ac51-45ae-9306-c6aafab1e2cf" />
 
-<img width="1200" height="484" alt="image" src="https://github.com/user-attachments/assets/9905176d-1ccc-46eb-a6b0-08ff24a8c150" />
+<img width="1200" height="684" alt="image" src="https://github.com/user-attachments/assets/9905176d-1ccc-46eb-a6b0-08ff24a8c150" />
 
-<img width="250" height="323" alt="Screenshot 2026-02-22 152050" src="https://github.com/user-attachments/assets/fb062186-3f3b-44ef-b40b-6de695974073" />
+<img width="250" height="423" alt="Screenshot 2026-02-22 152050" src="https://github.com/user-attachments/assets/fb062186-3f3b-44ef-b40b-6de695974073" />
 
-<img width="439" height="257" alt="Screenshot 2026-02-22 151551" src="https://github.com/user-attachments/assets/f6adba7a-a68a-4cbc-84ad-343e984bf02c" />
+<img width="439" height="657" alt="Screenshot 2026-02-22 151551" src="https://github.com/user-attachments/assets/f6adba7a-a68a-4cbc-84ad-343e984bf02c" />
 
 over 3+ different themes to choose from.
 and more...
