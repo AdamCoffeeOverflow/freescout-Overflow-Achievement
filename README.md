@@ -1,6 +1,14 @@
 # OverflowAchievement
-
 <img width="256" height="256" alt="icon" src="https://github.com/user-attachments/assets/a70bb703-b85c-4708-83ac-5e69eb3d1e28" />
+
+Author: AdamCoffeeOverflow
+
+<a href="https://www.buymeacoffee.com/zrhfqt992nt" target="_blank" rel="noopener noreferrer">
+  <img
+    src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20coffee!&emoji=%E2%98%95&slug=zrhfqt992nt&button_colour=FF5F5F&font_colour=ffffff&font_family=Inter&outline_colour=000000&coffee_colour=FFDD00"
+    alt="Buy me a coffee"
+  />
+</a>
 
 OverflowAchievement adds XP, levels, achievements, and motivational UI feedback to FreeScout.
 Over 100+ Icon packs for hundreds of trophies
