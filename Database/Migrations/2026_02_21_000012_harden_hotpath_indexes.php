@@ -67,7 +67,7 @@ class HardenHotpathIndexes extends Migration
         $driver = DB::getDriverName();
 
         if ($driver === 'pgsql') {
-            $cols = implode(', ', array_map(fn($c) => '"'.$c.'"', $columns));
+            $cols = implode(', ', array_map(function ($c) { return '"'.$c.'"'; }, $columns));
             DB::statement("CREATE INDEX IF NOT EXISTS {$indexName} ON \"{$table}\" ({$cols})");
             return;
         }

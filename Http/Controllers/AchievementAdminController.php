@@ -11,6 +11,7 @@ use Modules\OverflowAchievement\Entities\Achievement;
 use Modules\OverflowAchievement\Entities\Event;
 use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
+use Modules\OverflowAchievement\Services\LevelService;
 use Modules\OverflowAchievement\Services\QuoteService;
 
 class AchievementAdminController extends Controller
@@ -26,6 +27,90 @@ class AchievementAdminController extends Controller
         if (!$user || !$user->isAdmin()) {
             abort(403);
         }
+    }
+
+
+    protected function resolveTargetUserIds(Request $request, string $prefix, bool $includeAllUsers = false): array
+    {
+        $target = (string)($request->input($prefix.'.user_id_custom') ?: ($request->input($prefix.'.user_id') ?? 'me'));
+
+        if ($target === 'all') {
+            if ($includeAllUsers && class_exists('\App\User') && defined('\App\User::TYPE_USER')) {
+                return \App\User::query()
+                    ->where('type', \App\User::TYPE_USER)
+                    ->pluck('id')
+                    ->map(function ($id) {
+                        return (int)$id;
+                    })
+                    ->toArray();
+            }
+
+            return UserStat::query()->pluck('user_id')->map(function ($id) {
+                return (int)$id;
+            })->toArray();
+        }
+
+        if (ctype_digit($target)) {
+            return [(int)$target];
+        }
+
+        return [(int)$request->user()->id];
+    }
+
+    protected function buildLevelRepairSummary(array $userIds, bool $repair = false, bool $invalidOnly = true): array
+    {
+        $levelService = new LevelService();
+        $stats = UserStat::query()
+            ->whereIn('user_id', $userIds)
+            ->orderBy('user_id')
+            ->get(['user_id', 'xp_total', 'level']);
+
+        $summary = [
+            'selected_users' => count($userIds),
+            'rows_found' => 0,
+            'invalid_rows' => 0,
+            'updated_rows' => 0,
+            'examples' => [],
+        ];
+
+        foreach ($stats as $stat) {
+            $summary['rows_found']++;
+
+            $xpTotal = (int)$stat->xp_total;
+            $storedLevel = max(1, (int)$stat->level);
+            $expectedLevel = $levelService->levelForXp($xpTotal);
+            $isInvalid = $storedLevel !== $expectedLevel;
+
+            if ($isInvalid) {
+                $summary['invalid_rows']++;
+                if (count($summary['examples']) < 10) {
+                    $summary['examples'][] = [
+                        'user_id' => (int)$stat->user_id,
+                        'xp_total' => $xpTotal,
+                        'stored_level' => $storedLevel,
+                        'expected_level' => $expectedLevel,
+                    ];
+                }
+            }
+
+            if (!$repair) {
+                continue;
+            }
+
+            if ($invalidOnly && !$isInvalid) {
+                continue;
+            }
+
+            if ($storedLevel !== $expectedLevel) {
+                UserStat::query()->where('user_id', (int)$stat->user_id)->update([
+                    'level' => $expectedLevel,
+                    'updated_at' => now(),
+                ]);
+                $summary['updated_rows']++;
+            }
+        }
+
+        return $summary;
     }
 
     public function store(Request $request)
@@ -440,6 +525,74 @@ class AchievementAdminController extends Controller
                 'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
             ],
         ]);
+    }
+
+    public function repairLevels(Request $request)
+    {
+        $this->ensureAdmin($request);
+
+        if (!Schema::hasTable('overflowachievement_user_stats')) {
+            return redirect()->back()->with('error', __('Achievement tables are missing. Run database migrations first.'));
+        }
+
+        $action = strtolower(trim((string)$request->input('repair.action', 'scan')));
+        if (!in_array($action, ['scan', 'repair'], true)) {
+            $action = 'scan';
+        }
+
+        $scope = strtolower(trim((string)$request->input('repair.scope', 'invalid_only')));
+        if (!in_array($scope, ['invalid_only', 'all_selected'], true)) {
+            $scope = 'invalid_only';
+        }
+        $invalidOnly = $scope !== 'all_selected';
+
+        $target = (string)($request->input('repair.user_id_custom') ?: ($request->input('repair.user_id') ?? 'me'));
+        $userIds = $this->resolveTargetUserIds($request, 'repair', false);
+
+        if (empty($userIds)) {
+            return redirect()->back()->with('success', __('No user stats found to inspect.'));
+        }
+
+        if ($action === 'repair') {
+            $confirm = strtoupper(trim((string)$request->input('repair.confirm', '')));
+            $expected = ($target === 'all') ? 'REPAIR ALL' : 'REPAIR';
+            if ($confirm !== $expected) {
+                return redirect()->back()->with('error', $target === 'all'
+                    ? __('To repair all selected users, type REPAIR ALL in the confirmation field.')
+                    : __('To repair levels, type REPAIR in the confirmation field.')
+                );
+            }
+
+            $summary = DB::transaction(function () use ($userIds, $invalidOnly) {
+                return $this->buildLevelRepairSummary($userIds, true, $invalidOnly);
+            });
+
+            $message = __('Repaired :updated of :rows stat rows. Found :invalid mismatched levels among :selected selected users.', [
+                'updated' => (int)$summary['updated_rows'],
+                'rows' => (int)$summary['rows_found'],
+                'invalid' => (int)$summary['invalid_rows'],
+                'selected' => (int)$summary['selected_users'],
+            ]);
+
+            return redirect()->back()->with('success', $message);
+        }
+
+        $summary = $this->buildLevelRepairSummary($userIds, false, $invalidOnly);
+        $message = __('Scanned :rows stat rows across :selected selected users. Found :invalid mismatched levels.', [
+            'rows' => (int)$summary['rows_found'],
+            'selected' => (int)$summary['selected_users'],
+            'invalid' => (int)$summary['invalid_rows'],
+        ]);
+
+        if (!empty($summary['examples'])) {
+            $parts = [];
+            foreach ($summary['examples'] as $example) {
+                $parts[] = '#'.(int)$example['user_id'].' (XP '.(int)$example['xp_total'].': '.(int)$example['stored_level'].' → '.(int)$example['expected_level'].')';
+            }
+            $message .= ' '.__('Examples').': '.implode(', ', $parts);
+        }
+
+        return redirect()->back()->with('success', $message);
     }
 
     protected function handleIconUpload(Request $request, Achievement $achievement): void

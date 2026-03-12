@@ -382,7 +382,7 @@
 
                                 <form method="POST" action="{{ url(\Helper::getSubdirectory().'/modules/overflowachievement/admin/achievements/'.$a->id.'/delete') }}" style="display:inline; margin-left:6px;">
                                     {{ csrf_field() }}
-                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Delete achievement?');">{{ __('Delete') }}</button>
+                                    <button type="submit" class="btn btn-danger" data-oa-confirm="{{ __('Delete achievement?') }}">{{ __('Delete') }}</button>
                                 </form>
                             </td>
                         </tr>

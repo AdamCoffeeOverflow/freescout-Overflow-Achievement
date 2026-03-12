@@ -1638,6 +1638,18 @@ function addToBatch(items, stat, prevStat) {
 
 
     // Single preview button (local). Keeps Settings clean and avoids relying on server routes.
+    $(document).off('submit.oaConfirm').on('submit.oaConfirm', 'form', function (e) {
+      var btn = this.querySelector('[data-oa-confirm]');
+      if (!btn) {
+        return;
+      }
+      var msg = btn.getAttribute('data-oa-confirm') || 'Are you sure?';
+      if (!window.confirm(msg)) {
+        e.preventDefault();
+        return false;
+      }
+    });
+
     $(document).off('click.oaPreviewToast').on('click.oaPreviewToast', '.oa-preview-toast', function (e) {
       e.preventDefault();
       var $scope = $(this).closest('form');

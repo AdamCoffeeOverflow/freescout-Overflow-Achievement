@@ -39,6 +39,56 @@
         </div>
     </div>
 
+
+    <div class="panel panel-default">
+        <div class="panel-heading"><strong>{{ __('Level Repair / XP Re-sync') }}</strong></div>
+        <div class="panel-body">
+            <form class="form-horizontal" method="POST" action="{{ url(\Helper::getSubdirectory().'/modules/overflowachievement/admin/repair-levels') }}">
+                {{ csrf_field() }}
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">{{ __('Target') }}</label>
+                    <div class="col-sm-6">
+                        <div class="row">
+                            <div class="col-xs-6">
+                                <select class="form-control" name="repair[user_id]">
+                                    <option value="me">{{ __('Me') }}</option>
+                                    <option value="all">{{ __('All users with stats') }}</option>
+                                </select>
+                            </div>
+                            <div class="col-xs-6">
+                                <input type="number" class="form-control" name="repair[user_id_custom]" placeholder="{{ __('User ID') }}">
+                            </div>
+                        </div>
+                        <div class="help-block">{{ __('Scans current XP totals and checks whether the stored level still matches the corrected progression curve.') }}</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">{{ __('Repair scope') }}</label>
+                    <div class="col-sm-6">
+                        <select class="form-control" name="repair[scope]">
+                            <option value="invalid_only">{{ __('Only mismatched levels (recommended)') }}</option>
+                            <option value="all_selected">{{ __('Recalculate all selected stat rows from XP') }}</option>
+                        </select>
+                        <div class="help-block">{{ __('This does not change XP. It only recalculates the saved level from current XP.') }}</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-sm-3 control-label">{{ __('Confirmation') }}</label>
+                    <div class="col-sm-6">
+                        <input type="text" class="form-control" name="repair[confirm]" placeholder="{{ __('Type REPAIR or REPAIR ALL when running a fix') }}">
+                        <div class="help-block">{{ __('Scan does not need confirmation. Repair for one user requires REPAIR. Repair for all users requires REPAIR ALL.') }}</div>
+                    </div>
+                    <div class="col-sm-3">
+                        <button type="submit" class="btn btn-default" name="repair[action]" value="scan">{{ __('Scan now') }}</button>
+                        <button type="submit" class="btn btn-warning" name="repair[action]" value="repair">{{ __('Repair levels') }}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="panel panel-default">
         <div class="panel-heading"><strong>{{ __('Test Notification') }}</strong></div>
         <div class="panel-body">

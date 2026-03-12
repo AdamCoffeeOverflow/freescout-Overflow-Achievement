@@ -20,9 +20,11 @@ class RewardEngine
      * Keep this class compatible with PHP 7.4 (FreeScout commonly supports 7.4+).
      * Avoid PHP 8 constructor property promotion.
      */
-    protected LevelService $levelService;
+    /** @var LevelService */
+    protected $levelService;
 
-    protected QuoteService $quoteService;
+    /** @var QuoteService */
+    protected $quoteService;
 
     protected function installed(): bool
     {

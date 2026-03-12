@@ -105,6 +105,16 @@ class LevelService
         return $cache[$cacheKey] = $scaled;
     }
 
+    protected function baseFormulaMinXp(int $level): int
+    {
+        $level = max(1, (int)$level);
+
+        // Continue the shipped base curve exactly:
+        // L1=0, L2=100, L3=250, ... which matches
+        // 25 * (level - 1) * (level + 2)
+        return (int)(25 * ($level - 1) * ($level + 2));
+    }
+
     public function levelMinXp(int $level): int
     {
         $level = max(1, (int)$level);
@@ -114,22 +124,15 @@ class LevelService
             return (int)$curve[$level];
         }
 
-        // Extrapolate beyond configured curve using the last observed delta.
-        $levels = array_keys($curve);
-        $lastLevel = (int)end($levels);
-        $lastMin = (int)$curve[$lastLevel];
-        $prevLevel = $lastLevel > 1 ? $lastLevel - 1 : 1;
-        $prevMin = isset($curve[$prevLevel]) ? (int)$curve[$prevLevel] : max(0, $lastMin - 250);
-        $delta = max(100, $lastMin - $prevMin);
-
-        // Increase delta slightly each level.
-        $growth = 1.15;
-        $min = $lastMin;
-        for ($l = $lastLevel + 1; $l <= $level; $l++) {
-            $min += (int)round($delta);
-            $delta = (int)round($delta * $growth);
+        // For levels beyond the configured table, extend the original shipped curve
+        // using the same quadratic formula rather than an arbitrary growth guess.
+        $factor = $this->scaleFactor();
+        $baseMin = $this->baseFormulaMinXp($level);
+        if ($level === 1) {
+            return 0;
         }
-        return (int)$min;
+
+        return (int)round($baseMin * $factor);
     }
 
     public function nextLevelMinXp(int $current_level): int

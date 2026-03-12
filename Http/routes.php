@@ -71,6 +71,12 @@ Route::group([
         'as' => 'overflowachievement.admin.reset',
     ]);
 
+
+    Route::post('/modules/overflowachievement/admin/repair-levels', [
+        'uses' => 'AchievementAdminController@repairLevels',
+        'as' => 'overflowachievement.admin.repair_levels',
+    ]);
+
     Route::post('/modules/overflowachievement/admin/test-toast', [
         'uses' => 'AchievementAdminController@testToast',
         'as' => 'overflowachievement.admin.test_toast',

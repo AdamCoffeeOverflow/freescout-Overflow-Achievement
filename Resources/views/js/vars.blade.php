@@ -36,9 +36,9 @@ window.OVERFLOWACHIEVEMENT_I18N = {
 
 // Trigger labels/hints/scopes for the achievements UI.
 window.OVERFLOWACHIEVEMENT_TRIGGERS = {
-  labels: {!! json_encode(config('overflowachievement.triggers.labels', [])) !!},
-  hints: {!! json_encode(config('overflowachievement.triggers.hints', [])) !!},
-  scopes: {!! json_encode(config('overflowachievement.triggers.scopes', [])) !!},
+  labels: <?php echo class_exists('\Helper') && method_exists('\Helper', 'jsonEncodeUtf8') ? \Helper::jsonEncodeUtf8(config('overflowachievement.triggers.labels', [])) : json_encode(config('overflowachievement.triggers.labels', [])); ?>,
+  hints: <?php echo class_exists('\Helper') && method_exists('\Helper', 'jsonEncodeUtf8') ? \Helper::jsonEncodeUtf8(config('overflowachievement.triggers.hints', [])) : json_encode(config('overflowachievement.triggers.hints', [])); ?>,
+  scopes: <?php echo class_exists('\Helper') && method_exists('\Helper', 'jsonEncodeUtf8') ? \Helper::jsonEncodeUtf8(config('overflowachievement.triggers.scopes', [])) : json_encode(config('overflowachievement.triggers.scopes', [])); ?>,
   scope_labels: {
     lifetime: "{{ __('Lifetime') }}",
     daily: "{{ __('Daily') }}",
