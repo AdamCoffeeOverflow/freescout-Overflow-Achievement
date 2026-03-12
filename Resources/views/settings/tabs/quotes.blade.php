@@ -1,4 +1,9 @@
 <div role="tabpanel" class="tab-pane" id="oa-tab-quotes">
+                <form class="form-horizontal margin-bottom oa-settings-form oa-quotes-form" method="POST" action="{{ url()->current() }}">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="tab" value="quotes" />
+                    <input type="hidden" id="oa-mailbox-quotes-json" name="settings[overflowachievement.quotes.mailbox_rules]" value="{{ e($mailbox_quote_rules_json) }}" />
+
                 <div class="row">
                     <div class="col-sm-10">
                         <div class="panel panel-default">
@@ -62,4 +67,10 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group margin-top">
+                    <div class="col-sm-10 col-sm-offset-2">
+                        <button type="submit" class="btn btn-primary">{{ __('Save Settings') }}</button>
+                    </div>
+                </div>
+                </form>
             </div>

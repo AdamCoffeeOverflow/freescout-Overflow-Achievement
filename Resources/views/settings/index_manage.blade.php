@@ -1,18 +1,19 @@
-    <div class="text-muted">{{ __('Create, edit, and deactivate trophies. Icons can be FontAwesome classes (fa-trophy) or module icon pack images.') }}</div>
+    <div class="text-muted">{{ __('Create, edit, and deactivate trophies. Icons can be FontAwesome classes (fa-trophy) or bundled icon pack images.') }}</div>
 
-    <div class="alert alert-info" style="margin-top:12px;">
+    <div class="alert alert-info" style="margin-top: 12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
             <div>
-                <strong>{{ __('Maintenance') }}</strong> — {{ __('If trophy icons are missing after caching/build issues, you can re-assign all trophies to use the bundled icon pack again.') }}
+                <strong>{{ __('Icon maintenance') }}</strong> —
+                {{ __('If trophy icons are missing after cache or asset issues, you can re-assign bundled icons in one pass.') }}
             </div>
-            <form method="POST" action="{{ url(\Helper::getSubdirectory().'/modules/overflowachievement/admin/achievements/reassign-icons') }}" style="margin:0;">
+            <form class="oa-admin-tool-form" method="POST" action="{{ url(\Helper::getSubdirectory().'/modules/overflowachievement/admin/achievements/reassign-icons') }}" style="margin:0;">
                 {{ csrf_field() }}
                 <label class="checkbox" style="display:inline-block; margin:0 10px 0 0; vertical-align:middle;">
                     <input type="checkbox" name="reassign[confirm]" value="1" required>
                     {{ __('I understand this overwrites current trophy icons') }}
                 </label>
-                <button type="submit" class="btn btn-sm btn-primary" style="vertical-align:middle;">
-                    <i class="fa fa-refresh"></i> {{ __('Re-assign trophy icons') }}
+                <button type="submit" class="btn btn-sm btn-primary" style="vertical-align:middle;" data-oa-confirm="{{ __('Re-assign bundled trophy icons for all achievements?') }}">
+                    <i class="fa fa-refresh"></i> {{ __('Re-assign bundled icons') }}
                 </button>
             </form>
         </div>
@@ -382,7 +383,7 @@
 
                                 <form method="POST" action="{{ url(\Helper::getSubdirectory().'/modules/overflowachievement/admin/achievements/'.$a->id.'/delete') }}" style="display:inline; margin-left:6px;">
                                     {{ csrf_field() }}
-                                    <button type="submit" class="btn btn-danger" data-oa-confirm="{{ __('Delete achievement?') }}">{{ __('Delete') }}</button>
+                                    <button type="submit" class="btn btn-danger" data-oa-confirm="{{ __('Delete this achievement? This cannot be undone.') }}">{{ __('Delete') }}</button>
                                 </form>
                             </td>
                         </tr>

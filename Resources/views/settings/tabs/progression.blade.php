@@ -1,4 +1,8 @@
 <div role="tabpanel" class="tab-pane" id="oa-tab-progression">
+                <form class="form-horizontal margin-bottom oa-settings-form" method="POST" action="{{ url()->current() }}">
+                    {{ csrf_field() }}
+                    <input type="hidden" name="tab" value="progression" />
+
                 <div class="row">
                     <div class="col-sm-8">
                         <div class="panel panel-default">
@@ -285,4 +289,10 @@
                         </div>
                     </div>
                 </div>
+                <div class="form-group margin-top">
+                    <div class="col-sm-10 col-sm-offset-2">
+                        <button type="submit" class="btn btn-primary">{{ __('Save Settings') }}</button>
+                    </div>
+                </div>
+                </form>
             </div>

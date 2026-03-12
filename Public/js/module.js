@@ -1637,15 +1637,12 @@ function addToBatch(items, stat, prevStat) {
     });
 
 
-    // Single preview button (local). Keeps Settings clean and avoids relying on server routes.
-    $(document).off('submit.oaConfirm').on('submit.oaConfirm', 'form', function (e) {
-      var btn = this.querySelector('[data-oa-confirm]');
-      if (!btn) {
-        return;
-      }
-      var msg = btn.getAttribute('data-oa-confirm') || 'Are you sure?';
+    // Restrict confirmation prompts to explicitly marked buttons.
+    $(document).off('click.oaConfirm').on('click.oaConfirm', '[data-oa-confirm]', function (e) {
+      var msg = $(this).attr('data-oa-confirm') || 'Are you sure?';
       if (!window.confirm(msg)) {
         e.preventDefault();
+        e.stopImmediatePropagation();
         return false;
       }
     });
