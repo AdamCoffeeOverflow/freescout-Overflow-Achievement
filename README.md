@@ -40,15 +40,13 @@ This package is intended to be the **single distribution** for both:
 - **Fresh installs** (no existing OverflowAchievement tables)
 - **Upgrades** (previous versions already installed)
 
-## Install / Upgrade
-1. Copy `OverflowAchievement/` into your FreeScout `Modules/` directory.
-2. In FreeScout: **Manage → Modules** → Activate (or Update).
-3. Run migrations:
-   - `php artisan migrate` (if applicable)
-4. Clear caches:
+## Install
+1. Download the **Release** Version for easy install (Do not download via **<> Code link**)
+2. Copy the module folder into your FreeScout instance:
+   - `Modules/OverflowAchievement`
+3. Activate it in **Manage → Modules**.
+4. (Optional) clear caches:
    - `php artisan cache:clear`
-5. Rebuild module assets (recommended when updating):
-   - `php artisan freescout:module-build`
 
 ## PostgreSQL
 PostgreSQL is supported.
