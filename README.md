@@ -16,7 +16,8 @@ Over 100+ motivation quotes for each trophies.
 Over 100+ triggers to motivate users to unlock these trophies and compete internally for collecting them!
 
 
-![Recording 2026-02-22 152000](https://github.com/user-attachments/assets/d329039b-cad9-4090-9d49-a00ce4e4f368)
+![ezgif-372cdcb9b7825df9](https://github.com/user-attachments/assets/4fd6c65a-50c9-448d-a664-da7293a802fc)
+
 
 
 Toast notification for achievement trophy unlocked
