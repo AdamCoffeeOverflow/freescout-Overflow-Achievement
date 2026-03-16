@@ -16,7 +16,8 @@ Over 100+ motivation quotes for each trophies.
 Over 100+ triggers to motivate users to unlock these trophies and compete internally for collecting them!
 
 
-![Recording 2026-02-22 152000](https://github.com/user-attachments/assets/d329039b-cad9-4090-9d49-a00ce4e4f368)
+![ezgif-372cdcb9b7825df9](https://github.com/user-attachments/assets/4fd6c65a-50c9-448d-a664-da7293a802fc)
+
 
 
 Toast notification for achievement trophy unlocked
@@ -40,15 +41,13 @@ This package is intended to be the **single distribution** for both:
 - **Fresh installs** (no existing OverflowAchievement tables)
 - **Upgrades** (previous versions already installed)
 
-## Install / Upgrade
-1. Copy `OverflowAchievement/` into your FreeScout `Modules/` directory.
-2. In FreeScout: **Manage → Modules** → Activate (or Update).
-3. Run migrations:
-   - `php artisan migrate` (if applicable)
-4. Clear caches:
+## Install
+1. Download the **Release** Version for easy install (Do not download via **<> Code link**)
+2. Copy the module folder into your FreeScout instance:
+   - `Modules/OverflowAchievement`
+3. Activate it in **Manage → Modules**.
+4. (Optional) clear caches:
    - `php artisan cache:clear`
-5. Rebuild module assets (recommended when updating):
-   - `php artisan freescout:module-build`
 
 ## PostgreSQL
 PostgreSQL is supported.
