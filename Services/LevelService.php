@@ -4,6 +4,7 @@ namespace Modules\OverflowAchievement\Services;
 
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Modules\OverflowAchievement\Entities\UserStat;
 
 class LevelService
 {
@@ -20,8 +21,8 @@ class LevelService
             return $cached;
         }
 
-        // Default: on, conservative.
-        $enabled = (bool)config('overflowachievement.levels_dynamic.enabled', true);
+        // Default: off. Fixed curves are more predictable for admins and fairer for agents.
+        $enabled = (bool)config('overflowachievement.levels_dynamic.enabled', false);
         if (!$enabled) {
             return $cached = 1.0;
         }
@@ -105,14 +106,32 @@ class LevelService
         return $cache[$cacheKey] = $scaled;
     }
 
-    protected function baseFormulaMinXp(int $level): int
+    protected function extrapolatedLevelMinXp(int $level, array $curve): int
     {
         $level = max(1, (int)$level);
+        ksort($curve);
 
-        // Continue the shipped base curve exactly:
-        // L1=0, L2=100, L3=250, ... which matches
-        // 25 * (level - 1) * (level + 2)
-        return (int)(25 * ($level - 1) * ($level + 2));
+        $levels = array_keys($curve);
+        $max_level = (int)end($levels);
+        if ($level <= $max_level) {
+            return (int)$curve[$level];
+        }
+
+        $last_min = (int)$curve[$max_level];
+        $prev_min = (int)($curve[$max_level - 1] ?? max(0, $last_min - 3750));
+        $last_gap = max(100, $last_min - $prev_min);
+        $gap_before_last = max(100, $prev_min - (int)($curve[$max_level - 2] ?? 0));
+        $gap_growth = max(100, $last_gap - $gap_before_last);
+
+        $current_min = $last_min;
+        $current_gap = $last_gap;
+
+        for ($cursor = $max_level + 1; $cursor <= $level; $cursor++) {
+            $current_gap += $gap_growth;
+            $current_min += $current_gap;
+        }
+
+        return (int)$current_min;
     }
 
     public function levelMinXp(int $level): int
@@ -124,20 +143,30 @@ class LevelService
             return (int)$curve[$level];
         }
 
-        // For levels beyond the configured table, extend the original shipped curve
-        // using the same quadratic formula rather than an arbitrary growth guess.
-        $factor = $this->scaleFactor();
-        $baseMin = $this->baseFormulaMinXp($level);
-        if ($level === 1) {
-            return 0;
-        }
-
-        return (int)round($baseMin * $factor);
+        return $this->extrapolatedLevelMinXp($level, $curve);
     }
 
     public function nextLevelMinXp(int $current_level): int
     {
         return $this->levelMinXp(max(1, $current_level) + 1);
+    }
+
+
+    public function syncStatLevel(UserStat $stat, bool $persist = false): UserStat
+    {
+        $expected_level = $this->levelForXp((int)$stat->xp_total);
+        if ((int)$stat->level !== (int)$expected_level) {
+            $stat->level = (int)$expected_level;
+
+            if ($persist && $stat->exists) {
+                UserStat::query()->where('user_id', (int)$stat->user_id)->update([
+                    'level' => (int)$expected_level,
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        return $stat;
     }
 
     public function levelForXp(int $xp_total): int

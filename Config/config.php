@@ -82,7 +82,7 @@ return [
 
     // Dynamic leveling scaling (keeps progression sane as trophies/triggers increase)
     'levels_dynamic' => [
-        'enabled' => true,
+        'enabled' => false,
         'baseline_achievements' => 60,
         // +0.5% XP curve per extra active trophy above baseline
         'step' => 0.005,

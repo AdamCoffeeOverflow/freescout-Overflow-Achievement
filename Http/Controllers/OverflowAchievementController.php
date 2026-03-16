@@ -8,10 +8,19 @@ use Illuminate\Support\Facades\Schema;
 use Modules\OverflowAchievement\Entities\Achievement;
 use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
+use Modules\OverflowAchievement\Services\LevelService;
 use Modules\OverflowAchievement\Services\QuoteService;
 
 class OverflowAchievementController extends Controller
 {
+    protected function syncDisplayedLevel(UserStat $stat, bool $persist = false): UserStat
+    {
+        /** @var LevelService $levels */
+        $levels = app('overflowachievement.levels');
+
+        return $levels->syncStatLevel($stat, $persist);
+    }
+
     public function my(Request $request)
     {
         if (!Schema::hasTable('overflowachievement_user_stats')) {
@@ -28,6 +37,10 @@ class OverflowAchievementController extends Controller
             'streak_current' => 0,
             'streak_best' => 0,
         ]);
+
+        $stat = $this->syncDisplayedLevel($stat, true);
+
+        $stat = $this->syncDisplayedLevel($stat, true);
 
         $levels = app('overflowachievement.levels');
         $cur_min = $levels->levelMinXp((int)$stat->level);
@@ -170,10 +183,14 @@ class OverflowAchievementController extends Controller
         }
 
         $top = UserStat::query()
-            ->orderByDesc('level')
             ->orderByDesc('xp_total')
+            ->orderByDesc('level')
             ->limit(50)
             ->get();
+
+        foreach ($top as $row) {
+            $this->syncDisplayedLevel($row, true);
+        }
 
         // Keep this list short so the page stays snappy and the UI doesn't look "infinite".
         // (If you ever want a full history, implement pagination or a dedicated "All trophies" page.)
@@ -260,6 +277,8 @@ class OverflowAchievementController extends Controller
             'xp_total' => 0,
             'level' => 1,
         ]);
+
+        $stat = $this->syncDisplayedLevel($stat, true);
 
         $levels = app('overflowachievement.levels');
         $cur_min = $levels->levelMinXp((int)$stat->level);

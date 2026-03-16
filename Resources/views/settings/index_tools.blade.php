@@ -11,7 +11,7 @@
     <div class="col-sm-4">
         <div class="alert alert-info" style="margin-bottom: 12px;">
             <strong>{{ __('Use with care') }}</strong><br>
-            {{ __('Reset removes progress data. Repair only recalculates stored levels from existing XP totals.') }}
+            {{ __('Reset removes progress data. Repair recalculates stored levels from existing XP totals using the current progression curve.') }}
         </div>
     </div>
 </div>

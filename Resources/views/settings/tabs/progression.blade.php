@@ -285,7 +285,7 @@
                     <div class="col-sm-4">
                         <div class="alert alert-info">
                             <strong>{{ __('Leveling curve') }}</strong><br>
-                            {{ __('Progression is gradual (quadratic curve). Early levels feel good, later levels are earned.') }}
+                            {{ __('Progression uses an explicit fixed curve. Early levels stay friendly, while mid and late levels open up more gradually and predictably.') }}
                         </div>
                     </div>
                 </div>

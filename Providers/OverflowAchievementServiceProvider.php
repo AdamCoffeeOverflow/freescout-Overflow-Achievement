@@ -107,6 +107,7 @@ class OverflowAchievementServiceProvider extends ServiceProvider
                 $stat = $cached[$user->id];
 
                 $levels = app('overflowachievement.levels');
+                $stat = $levels->syncStatLevel($stat, true);
                 $curMin = $levels->levelMinXp((int)$stat->level);
                 $nextMin = $levels->nextLevelMinXp((int)$stat->level);
                 $progress = 0;
