@@ -1,6 +1,7 @@
 <div role="tabpanel" class="tab-pane" id="oa-tab-visibility">
                 <form class="form-horizontal margin-bottom oa-settings-form" method="POST" action="{{ url()->current() }}">
                     {{ csrf_field() }}
+                    @include('overflowachievement::settings.preserve_all')
                     <input type="hidden" name="tab" value="visibility" />
 
                 <div class="row">

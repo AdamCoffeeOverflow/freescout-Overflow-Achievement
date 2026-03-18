@@ -1,6 +1,7 @@
 <div role="tabpanel" class="tab-pane" id="oa-tab-progression">
                 <form class="form-horizontal margin-bottom oa-settings-form" method="POST" action="{{ url()->current() }}">
                     {{ csrf_field() }}
+                    @include('overflowachievement::settings.preserve_all')
                     <input type="hidden" name="tab" value="progression" />
 
                 <div class="row">

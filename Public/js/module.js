@@ -280,8 +280,7 @@ function ensureToastWrap() {
   function shouldCelebrate(item) {
     if (!item) return false;
     if (!window.OVERFLOWACHIEVEMENT_EFFECT || window.OVERFLOWACHIEVEMENT_EFFECT === 'off') return false;
-    if (item.is_level_up) return true;
-    return item.rarity === 'epic' || item.rarity === 'legendary';
+    return true;
   }
 
   function getToastAnchorRect() {
