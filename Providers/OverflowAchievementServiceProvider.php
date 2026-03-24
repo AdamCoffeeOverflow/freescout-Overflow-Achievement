@@ -43,6 +43,7 @@ class OverflowAchievementServiceProvider extends ServiceProvider
     {
         $this->loadViewsFrom(__DIR__.'/../Resources/views', 'overflowachievement');
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
+        $this->loadJsonTranslationsFrom(__DIR__.'/../Resources/lang');
 
         // Settings must always be available while the module is active,
         // even if the module functionality is disabled via option.
