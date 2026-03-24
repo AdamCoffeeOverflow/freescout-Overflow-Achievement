@@ -50,8 +50,8 @@
                         role="button" tabindex="0"
                         data-oa-state="{{ $is_unlocked ? 'unlocked' : 'locked' }}"
                         data-oa-key="{{ e($def->key) }}"
-                        data-oa-title="{{ e($def->title) }}"
-                        data-oa-desc="{{ e($def->description) }}"
+                        data-oa-title="{{ e(__($def->title)) }}"
+                        data-oa-desc="{{ e(__($def->description)) }}"
                         data-oa-rarity="{{ e($rar) }}"
                         data-oa-trigger="{{ e($def->trigger) }}"
                         data-oa-trigger-label="{{ e($trigger_labels[$def->trigger] ?? $def->trigger) }}"
@@ -84,8 +84,8 @@
                                 @endif
                             </div>
                             <div class="oa-card-meta">
-                                <div class="oa-card-title">{{ $def->title }}</div>
-                                <div class="oa-card-desc">{{ $def->description }}</div>
+                                <div class="oa-card-title">{{ __($def->title) }}</div>
+                                <div class="oa-card-desc">{{ __($def->description) }}</div>
                             </div>
                         </div>
 
