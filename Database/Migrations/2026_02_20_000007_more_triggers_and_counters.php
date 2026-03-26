@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-class MoreTriggersAndCounters extends Migration
+class MoreTriggersAndCountersV2 extends Migration
 {
     public function up()
     {

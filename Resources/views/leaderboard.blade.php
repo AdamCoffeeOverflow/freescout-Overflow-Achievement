@@ -70,7 +70,7 @@
                                     $key = (string)$row->achievement_key;
                                     $is_level = str_starts_with($key, 'level_up_');
                                     $def = $is_level ? null : ($defs[$key] ?? null);
-                                    $title = $is_level ? __('Level Up') : ($def ? $def->title : $key);
+                                    $title = $is_level ? __('Level Up') : ($def ? __($def->title) : $key);
                                     $rarity = $is_level ? 'epic' : ($def ? $def->rarity : 'common');
                                     $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
                                     $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');
