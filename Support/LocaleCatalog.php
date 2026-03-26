@@ -67,6 +67,9 @@ class LocaleCatalog
     public static function translationCandidates($locale = null): array
     {
         $candidates = [];
+        if ($locale === null || trim((string) $locale) === '') {
+            $locale = app()->getLocale();
+        }
         $normalized = static::normalize($locale);
         if ($normalized) {
             $candidates[] = $normalized;
