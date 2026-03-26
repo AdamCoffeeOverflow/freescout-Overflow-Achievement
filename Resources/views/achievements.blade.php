@@ -26,6 +26,10 @@
                 <button type="button" class="oa-filter-btn" data-oa-filter="locked">{{ __('Locked') }}</button>
             </div>
 
+            @php
+                $rarity_labels = ['common' => __('Common'), 'rare' => __('Rare'), 'epic' => __('Epic'), 'legendary' => __('Legendary')];
+            @endphp
+
             <div class="oa-grid" id="oa-trophy-grid">
                 @foreach ($defs as $def)
                     @php
@@ -50,8 +54,8 @@
                         role="button" tabindex="0"
                         data-oa-state="{{ $is_unlocked ? 'unlocked' : 'locked' }}"
                         data-oa-key="{{ e($def->key) }}"
-                        data-oa-title="{{ e(__($def->title)) }}"
-                        data-oa-desc="{{ e(__($def->description)) }}"
+                        data-oa-title="{{ e($def->display_title) }}"
+                        data-oa-desc="{{ e($def->display_description) }}"
                         data-oa-rarity="{{ e($rar) }}"
                         data-oa-trigger="{{ e($def->trigger) }}"
                         data-oa-trigger-label="{{ e($trigger_labels[$def->trigger] ?? $def->trigger) }}"
@@ -84,13 +88,13 @@
                                 @endif
                             </div>
                             <div class="oa-card-meta">
-                                <div class="oa-card-title">{{ __($def->title) }}</div>
-                                <div class="oa-card-desc">{{ __($def->description) }}</div>
+                                <div class="oa-card-title">{{ $def->display_title }}</div>
+                                <div class="oa-card-desc">{{ $def->display_description }}</div>
                             </div>
                         </div>
 
                         <div class="oa-card-bottom">
-                            <div class="oa-chip oa-chip-{{ $rar }}">{{ strtoupper($rar) }}</div>
+                            <div class="oa-chip oa-chip-{{ $rar }}">{{ $rarity_labels[$rar] ?? ucfirst($rar) }}</div>
                             <div class="oa-card-req">
                                 <span class="oa-req">{{ $trigger_labels[$def->trigger] ?? $def->trigger }} ≥ {{ $def->threshold }}</span>
                             </div>
@@ -125,7 +129,7 @@
 <!-- Achievement details modal -->
 <div class="oa-modal-backdrop" id="oa-ach-modal" style="display:none" aria-hidden="true">
   <div class="oa-modal" role="dialog" aria-modal="true" aria-labelledby="oa-ach-modal-title">
-    <button type="button" class="oa-modal-close" data-oa-modal-close aria-label="Close">×</button>
+    <button type="button" class="oa-modal-close" data-oa-modal-close aria-label="{{ __('Close') }}">×</button>
     <div class="oa-modal-head">
       <div class="oa-modal-icon" data-oa-m="icon"></div>
       <div>

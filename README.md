@@ -55,6 +55,21 @@ PostgreSQL is supported.
 The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade.
 
 
+
+
+## Localization
+Built-in achievement titles/descriptions, trigger labels, and core UI strings are currently shipped for:
+- English (`en`)
+- French (`fr`)
+- Spanish (`es`)
+- German (`de`)
+- Italian (`it`)
+- Dutch (`nl`)
+- Polish (`pl`)
+- Portuguese (Brazil) (`pt_BR`, with `pt` alias)
+
+Note: the new locale packs include English fallback quote libraries for now, so quote text remains readable everywhere while full per-locale quote translation can be expanded incrementally.
+
 ## Compatibility With Freescout Module(s)
 - Teams Module
 - Custom Field Module

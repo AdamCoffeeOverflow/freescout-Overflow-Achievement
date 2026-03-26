@@ -3,6 +3,7 @@
 namespace Modules\OverflowAchievement\Services;
 
 use Modules\OverflowAchievement\Entities\Achievement;
+use Modules\OverflowAchievement\Support\QuoteCatalog;
 
 class QuoteService
 {
@@ -18,22 +19,22 @@ class QuoteService
     {
         $custom = trim((string)($achievement->quote_text ?? ''));
         if ($custom !== '') {
-            return [
+            return $this->localize([
                 'id' => $achievement->quote_id ?? null,
                 'text' => $this->trimToMax($custom),
                 'author' => $achievement->quote_author ?? null,
-            ];
+            ]);
         }
 
         $quote_id = trim((string)($achievement->quote_id ?? ''));
         if ($quote_id !== '') {
             $q = $this->getById($quote_id);
             if (!empty($q['text'])) {
-                return [
+                return $this->localize([
                     'id' => $q['id'] ?? $quote_id,
                     'text' => $this->trimToMax((string)$q['text']),
                     'author' => $q['author'] ?? null,
-                ];
+                ]);
             }
         }
 
@@ -51,7 +52,7 @@ class QuoteService
                 return $q;
             }
         }
-        return ['id' => $id, 'text' => null, 'author' => null];
+        return $this->localize(['id' => $id, 'text' => null, 'author' => null]);
     }
 
     /**
@@ -164,7 +165,9 @@ class QuoteService
      */
     public function all(): array
     {
-        return array_values((array)config('overflowachievement.quotes.library', []));
+        return array_map(function ($quote) {
+            return QuoteCatalog::localizeQuote((array)$quote);
+        }, array_values((array)config('overflowachievement.quotes.library', [])));
     }
 
     /**
@@ -202,11 +205,11 @@ class QuoteService
         $idx = (int)($hash % count($library));
         $q = $library[$idx] ?? [];
 
-        return [
+        return $this->localize([
             'id' => $q['id'] ?? null,
             'text' => $this->trimToMax((string)($q['text'] ?? '')),
             'author' => $q['author'] ?? null,
-        ];
+        ]);
     }
 
     /**
@@ -218,7 +221,7 @@ class QuoteService
 
         $pool = $quotes[$theme] ?? $quotes['generic'] ?? [];
         if (empty($pool)) {
-            return ['id' => null, 'text' => null, 'author' => null];
+            return $this->localize(['id' => null, 'text' => null, 'author' => null]);
         }
 
         $filtered = array_values(array_filter($pool, function ($q) use ($avoid_ids) {
@@ -230,11 +233,16 @@ class QuoteService
 
         $text = $this->trimToMax((string)($q['text'] ?? ''));
 
-        return [
+        return $this->localize([
             'id' => $q['id'] ?? null,
             'text' => $text ?: null,
             'author' => $q['author'] ?? null,
-        ];
+        ]);
+    }
+
+    protected function localize(array $quote): array
+    {
+        return QuoteCatalog::localizeQuote($quote);
     }
 
     protected function trimToMax(string $text): string

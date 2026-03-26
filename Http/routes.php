@@ -37,6 +37,11 @@ Route::group([
         'as' => 'overflowachievement.mark_seen',
     ]);
 
+    Route::get('/modules/overflowachievement/bootstrap', [
+        'uses' => 'OverflowAchievementController@bootstrap',
+        'as' => 'overflowachievement.bootstrap',
+    ]);
+
     // Lightweight health endpoint for the settings diagnostic.
     Route::get('/modules/overflowachievement/health', [
         'uses' => 'OverflowAchievementController@health',
@@ -44,6 +49,11 @@ Route::group([
     ]);
 
     // Admin achievement management (used from Settings > Achievement)
+    Route::get('/modules/overflowachievement/admin/manage-tab', [
+        'uses' => 'AchievementAdminController@manageTab',
+        'as' => 'overflowachievement.admin.manage_tab',
+    ]);
+
     Route::post('/modules/overflowachievement/admin/achievements', [
         'uses' => 'AchievementAdminController@store',
         'as' => 'overflowachievement.admin.achievements.store',

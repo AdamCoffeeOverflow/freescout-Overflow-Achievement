@@ -29,6 +29,17 @@
         }
     @endphp
 
+    @php
+        $trigger_option_labels = \Modules\OverflowAchievement\Support\TriggerCatalog::labels();
+        $trigger_options = array_keys($trigger_option_labels);
+        $rarity_labels = [
+            'common' => __('Common'),
+            'rare' => __('Rare'),
+            'epic' => __('Epic'),
+            'legendary' => __('Legendary'),
+        ];
+    @endphp
+
     <div class="panel panel-default" style="margin-top:12px;">
         <div class="panel-heading"><strong>{{ __('Create New') }}</strong></div>
         <div class="panel-body">
@@ -41,7 +52,7 @@
                         <input type="text" class="form-control" name="achievement[title]" required>
                     </div>
                     <div class="col-sm-4">
-                        <input type="text" class="form-control" name="achievement[key]" placeholder="key_optional">
+                        <input type="text" class="form-control" name="achievement[key]" placeholder="{{ __('Optional key') }}">
                     </div>
                 </div>
 
@@ -122,10 +133,9 @@
                     <label class="col-sm-2 control-label">{{ __('Trigger') }}</label>
                     <div class="col-sm-3">
                         <select class="form-control" name="achievement[trigger]">
-                            <option value="close_conversation">close_conversation</option>
-                            <option value="first_reply">first_reply</option>
-                            <option value="streak_days">streak_days</option>
-                            <option value="xp_total">xp_total</option>
+                            @foreach ($trigger_options as $trigger_key)
+                                <option value="{{ $trigger_key }}">{{ $trigger_option_labels[$trigger_key] ?? $trigger_key }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <label class="col-sm-2 control-label">{{ __('Threshold') }}</label>
@@ -142,10 +152,9 @@
                     <label class="col-sm-2 control-label">{{ __('Rarity') }}</label>
                     <div class="col-sm-3">
                         <select class="form-control" name="achievement[rarity]">
-                            <option value="common">common</option>
-                            <option value="rare">rare</option>
-                            <option value="epic">epic</option>
-                            <option value="legendary">legendary</option>
+                            @foreach ($rarity_labels as $rarity_key => $rarity_label)
+                                <option value="{{ $rarity_key }}">{{ $rarity_label }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <label class="col-sm-2 control-label">{{ __('Icon') }}</label>
@@ -195,8 +204,13 @@
     <div class="panel panel-default">
         <div class="panel-heading"><strong>{{ __('Existing') }}</strong></div>
         <div class="panel-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
+            <div class="text-muted" style="margin-bottom:12px;">
+                {{ __('The editor list stays collapsed until you need it.') }}
+            </div>
+            <details class="oa-manage-list">
+                <summary style="cursor:pointer; font-weight:600; margin-bottom:12px;">{{ __('Show existing achievements (:count)', ['count' => count($achievements ?? [])]) }}</summary>
+                <div class="table-responsive" style="margin-top:12px;">
+                    <table class="table table-striped">
                     <thead>
                         <tr>
                             <th>{{ __('Key') }}</th>
@@ -212,11 +226,17 @@
                     @foreach ($achievements as $a)
                         <tr>
                             <td><code>{{ $a->key }}</code></td>
-                            <td>{{ $a->title }}</td>
-                            <td>{{ $a->trigger }}</td>
+                            <td>{{ $a->display_title }}</td>
+                            <td>{{ $trigger_option_labels[$a->trigger] ?? $a->trigger }}</td>
                             <td>{{ $a->threshold }}</td>
-                            <td>{{ $a->rarity }}</td>
-                            <td>{!! $a->is_active ? '<span class="label label-success">Yes</span>' : '<span class="label label-default">No</span>' !!}</td>
+                            <td>{{ $rarity_labels[$a->rarity] ?? $a->rarity }}</td>
+                            <td>
+                                @if ($a->is_active)
+                                    <span class="label label-success">{{ __('Yes') }}</span>
+                                @else
+                                    <span class="label label-default">{{ __('No') }}</span>
+                                @endif
+                            </td>
                             <td style="white-space:nowrap;">
                                 <button class="btn btn-xs btn-default" type="button" data-toggle="collapse" data-target="#oa-edit-{{ $a->id }}">{{ __('Edit') }}</button>
                             </td>
@@ -233,8 +253,8 @@
                                         <label class="col-sm-2 control-label">{{ __('Trigger') }}</label>
                                         <div class="col-sm-2">
                                             <select class="form-control" name="achievement[trigger]">
-                                                @foreach (['close_conversation','first_reply','streak_days','xp_total'] as $t)
-                                                    <option value="{{ $t }}" @if($a->trigger===$t) selected @endif>{{ $t }}</option>
+                                                @foreach ($trigger_options as $t)
+                                                    <option value="{{ $t }}" @if($a->trigger===$t) selected @endif>{{ $trigger_option_labels[$t] ?? $t }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -322,8 +342,8 @@
                                         <label class="col-sm-2 control-label">{{ __('Rarity') }}</label>
                                         <div class="col-sm-2">
                                             <select class="form-control" name="achievement[rarity]">
-                                                @foreach (['common','rare','epic','legendary'] as $r)
-                                                    <option value="{{ $r }}" @if($a->rarity===$r) selected @endif>{{ $r }}</option>
+                                                @foreach ($rarity_labels as $r => $rarity_label)
+                                                    <option value="{{ $r }}" @if($a->rarity===$r) selected @endif>{{ $rarity_label }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -389,8 +409,9 @@
                         </tr>
                     @endforeach
                     </tbody>
-                </table>
-            </div>
+                    </table>
+                </div>
+            </details>
         </div>
     </div>
 

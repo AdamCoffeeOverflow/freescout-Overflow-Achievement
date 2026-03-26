@@ -3,6 +3,7 @@
 namespace Modules\OverflowAchievement\Entities;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\OverflowAchievement\Support\AchievementCatalog;
 
 class Achievement extends Model
 {
@@ -21,4 +22,19 @@ class Achievement extends Model
         'xp_reward' => 'int',
         'is_active' => 'bool',
     ];
+
+    public function getDisplayTitleAttribute(): string
+    {
+        return static::translateText($this->title, (string)$this->key, 'title', (string)$this->trigger, (int)$this->threshold);
+    }
+
+    public function getDisplayDescriptionAttribute(): string
+    {
+        return static::translateText($this->description, (string)$this->key, 'description', (string)$this->trigger, (int)$this->threshold);
+    }
+
+    public static function translateText($value, string $achievementKey = '', string $field = '', string $trigger = '', int $threshold = 0): string
+    {
+        return AchievementCatalog::translateField($value, $achievementKey, $field, $trigger, $threshold);
+    }
 }

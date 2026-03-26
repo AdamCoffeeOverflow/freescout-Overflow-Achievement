@@ -263,7 +263,7 @@ function ensureToastWrap() {
   }
 
   // Tiny i18n helper for JS UI.
-  // Uses window.OVERFLOWACHIEVEMENT_I18N when available (from vars.js), otherwise falls back to English.
+  // Uses window.OVERFLOWACHIEVEMENT_I18N when available (runtime bootstrap or fallback vars), otherwise falls back to English.
   function t(key, fallback, vars) {
     var dict = window.OVERFLOWACHIEVEMENT_I18N || {};
     var s = (dict && typeof dict[key] === 'string') ? dict[key] : fallback;
@@ -274,6 +274,21 @@ function ensureToastWrap() {
       s = s.split(':' + k).join(String(vars[k]));
     }
     return s;
+  }
+
+  function rarityLabel(rarity) {
+    var r = String(rarity || 'common').toLowerCase();
+    if (r === 'legendary') return t('rarity_legendary', 'Legendary');
+    if (r === 'epic') return t('rarity_epic', 'Epic');
+    if (r === 'rare') return t('rarity_rare', 'Rare');
+    return t('rarity_common', 'Common');
+  }
+
+  function healthReasonLabel(reason) {
+    var r = String(reason || 'unreachable');
+    if (r === 'disabled') return t('health_reason_disabled', 'Disabled');
+    if (r === 'missing_tables') return t('health_reason_missing_tables', 'Database tables are missing');
+    return t('health_reason_unreachable', 'Unreachable');
   }
 
 
@@ -382,6 +397,7 @@ function ensureToastWrap() {
   // Persist UI config too (duration/sticky/theme/effect) so the first toast after reload uses
   // the user's settings instead of falling back to defaults.
   var OA_UI_KEY = 'overflowachievement_ui_v1';
+  var OA_BOOTSTRAP_KEY = 'overflowachievement_bootstrap_v1';
   var OA_STORAGE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
   function storageAvailable() {
@@ -474,6 +490,83 @@ function ensureToastWrap() {
     try {
       window.sessionStorage.setItem(OA_UI_KEY, JSON.stringify(ui || {}));
     } catch (e) {}
+  }
+
+  function readBootstrapCache() {
+    if (!storageAvailable()) return null;
+    try {
+      var raw = window.sessionStorage.getItem(OA_BOOTSTRAP_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.payload) return null;
+      if (parsed.ts && (Date.now() - parsed.ts) > OA_STORAGE_TTL_MS) {
+        window.sessionStorage.removeItem(OA_BOOTSTRAP_KEY);
+        return null;
+      }
+      return parsed.payload;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeBootstrapCache(payload) {
+    if (!storageAvailable()) return;
+    try {
+      window.sessionStorage.setItem(OA_BOOTSTRAP_KEY, JSON.stringify({ ts: Date.now(), payload: payload || {} }));
+    } catch (e) {}
+  }
+
+  function applyBootstrapConfig(payload) {
+    if (!payload) return;
+    try {
+      if (typeof payload.enabled !== 'undefined') {
+        window.OVERFLOWACHIEVEMENT_ENABLED = !!payload.enabled;
+      }
+      var urls = payload.urls || {};
+      if (urls.unseen) window.OVERFLOWACHIEVEMENT_UNSEEN_URL = String(urls.unseen);
+      if (urls.mark_seen) window.OVERFLOWACHIEVEMENT_MARK_SEEN_URL = String(urls.mark_seen);
+      if (urls.bootstrap) window.OVERFLOWACHIEVEMENT_BOOTSTRAP_URL = String(urls.bootstrap);
+      if (urls.achievements) window.OVERFLOWACHIEVEMENT_ACHIEVEMENTS_URL = String(urls.achievements);
+      if (urls.health) window.OVERFLOWACHIEVEMENT_HEALTH_URL = String(urls.health);
+    } catch (e0) {}
+
+    try {
+      if (payload.i18n && typeof payload.i18n === 'object') {
+        window.OVERFLOWACHIEVEMENT_I18N = payload.i18n;
+      }
+      if (payload.triggers && typeof payload.triggers === 'object') {
+        window.OVERFLOWACHIEVEMENT_TRIGGERS = payload.triggers;
+      }
+    } catch (e1) {}
+
+    try {
+      if (payload.ui) {
+        applyUiConfig(payload.ui);
+        writeUiCache(payload.ui);
+      }
+    } catch (e2) {}
+  }
+
+  function fetchBootstrapConfig(done) {
+    if (typeof fsAjax !== 'function') {
+      if (done) done();
+      return;
+    }
+    var url = window.OVERFLOWACHIEVEMENT_BOOTSTRAP_URL
+      ? String(window.OVERFLOWACHIEVEMENT_BOOTSTRAP_URL)
+      : (getBaseUrl() + '/modules/overflowachievement/bootstrap');
+
+    fsAjax({}, url, function (resp) {
+      try {
+        if (resp && resp.ok) {
+          applyBootstrapConfig(resp);
+          writeBootstrapCache(resp);
+        }
+      } catch (e) {}
+      if (done) done(resp || null);
+    }, true, function () {
+      if (done) done(null);
+    }, { method: 'get' });
   }
 
   function applyUiConfig(ui) {
@@ -599,7 +692,7 @@ function ensureLevelToast() {
     + '    <div class="oa-level-toast-badge">▲</div>'
     + '    <div class="oa-level-toast-text">'
     + '      <div class="oa-level-toast-title">' + escapeHtml(t('level_up', 'Level Up!')) + '</div>'
-    + '      <div class="oa-level-toast-sub">Lv <span data-oa-lv="from">0</span> → <span data-oa-lv="to">0</span></div>'
+    + '      <div class="oa-level-toast-sub">' + escapeHtml(t('lv_short', 'Lv')) + ' <span data-oa-lv="from">0</span> → <span data-oa-lv="to">0</span></div>'
     + '    </div>'
     + '  </div>'
     + '</div>';
@@ -650,7 +743,7 @@ function ensureToastSingleton() {
 	  + '  <div class="oa-toast-fx oa-toast-fx-left" aria-hidden="true"></div>'
 	  + '  <div class="oa-toast-fx oa-toast-fx-right" aria-hidden="true"></div>'
 	  + '  <div class="oa-toast-clip">'
-	  + '    <button type="button" class="oa-toast-dismiss" aria-label="Dismiss">×</button>'
+	  + '    <button type="button" class="oa-toast-dismiss" aria-label="' + escapeHtml(t('dismiss', 'Dismiss')) + '">×</button>'
 	  + '    <div class="oa-toast-top">'
 	  + '      <div class="oa-toast-icon" data-oa-slot="icon"></div>'
 	  + '      <div class="oa-toast-head">'
@@ -670,7 +763,7 @@ function ensureToastSingleton() {
 	  + '      </div>'
 	  + '      <div class="oa-toast-progress" aria-hidden="true"><span data-oa-slot="bar" style="transform:scaleX(0)"></span></div>'
 	  + '      <div class="oa-toast-actions">'
-	  + '        <a class="oa-toast-btn" data-oa-slot="btn" href="#">View trophies</a>'
+	  + '        <a class="oa-toast-btn" data-oa-slot="btn" href="#">' + escapeHtml(t('view_trophies', 'View trophies')) + '</a>'
 	  + '      </div>'
 	  + '    </div>'
 	  + '  </div>'
@@ -727,7 +820,7 @@ function createToastNodeForStack(next) {
     + '  <div class="oa-toast-fx oa-toast-fx-left" aria-hidden="true"></div>'
     + '  <div class="oa-toast-fx oa-toast-fx-right" aria-hidden="true"></div>'
     + '  <div class="oa-toast-clip">'
-    + '    <button type="button" class="oa-toast-dismiss" aria-label="Dismiss">×</button>'
+    + '    <button type="button" class="oa-toast-dismiss" aria-label="' + escapeHtml(t('dismiss', 'Dismiss')) + '">×</button>'
     + '    <div class="oa-toast-top">'
     + '      <div class="oa-toast-icon" data-oa-slot="icon"></div>'
     + '      <div class="oa-toast-head">'
@@ -747,7 +840,7 @@ function createToastNodeForStack(next) {
     + '      </div>'
     + '      <div class="oa-toast-progress" aria-hidden="true"><span data-oa-slot="bar" style="transform:scaleX(0)"></span></div>'
     + '      <div class="oa-toast-actions">'
-    + '        <a class="oa-toast-btn" data-oa-slot="btn" href="#">View trophies</a>'
+    + '        <a class="oa-toast-btn" data-oa-slot="btn" href="#">' + escapeHtml(t('view_trophies', 'View trophies')) + '</a>'
     + '      </div>'
     + '    </div>'
     + '  </div>'
@@ -862,7 +955,7 @@ function updateToastContent(toast, item, stat, prevStat) {
 
   // If title is missing, use the same wording as the headline (better than "Achievement")
   var safeTitle = escapeHtml((safeItem && safeItem.title) ? safeItem.title : safeHeadline);
-  var safeRarityText = escapeHtml(String((safeItem && safeItem.rarity) ? safeItem.rarity : 'common').toUpperCase());
+  var safeRarityText = escapeHtml(rarityLabel((safeItem && safeItem.rarity) ? safeItem.rarity : 'common'));
 
   try { if ($icon) $icon.innerHTML = iconHtml(safeItem); } catch (e) {}
   try { bindIconFallback(toast); } catch (e) {}
@@ -881,8 +974,8 @@ function updateToastContent(toast, item, stat, prevStat) {
       for (var bi = 0; bi < safeItem.batch_items.length; bi++) {
         if (bi >= maxShow) break;
         var it = safeItem.batch_items[bi] || {};
-        var tTitle = it.title ? it.title : 'Achievement';
-        var rTxt = String(it.rarity ? it.rarity : 'common').toUpperCase();
+        var tTitle = it.title ? it.title : t('achievement', 'Achievement');
+        var rTxt = rarityLabel(it.rarity ? it.rarity : 'common');
         rows += ''
           + '<div class="oa-batch-row">'
           + '  <div class="oa-batch-ico">' + iconHtml(it) + '</div>'
@@ -915,8 +1008,8 @@ function updateToastContent(toast, item, stat, prevStat) {
     if ($pills) {
       if (!$pills._oaInit) {
         $pills.innerHTML = ''
-          + '<span class="oa-pill oa-pill-lv">Lv <span class="oa-num" data-oa-num="lv">0</span></span>'
-          + '<span class="oa-pill oa-pill-xp"><span class="oa-num" data-oa-num="xp">0</span> XP</span>';
+          + '<span class="oa-pill oa-pill-lv">' + escapeHtml(t('lv_short', 'Lv')) + ' <span class="oa-num" data-oa-num="lv">0</span></span>'
+          + '<span class="oa-pill oa-pill-xp"><span class="oa-num" data-oa-num="xp">0</span> ' + escapeHtml(t('xp_short', 'XP')) + '</span></span>';
         $pills._oaInit = true;
       }
       var lvEl = $pills.querySelector('[data-oa-num="lv"]');
@@ -948,7 +1041,7 @@ function updateToastContent(toast, item, stat, prevStat) {
         var inLevel = Math.max(0, fmtInt(xpTotal) - fmtInt(curMin));
         metaRight = escapeHtml(inLevel) + '/' + escapeHtml(den);
       }
-      $toNext.textContent = metaRight ? ('To next: ' + metaRight) : '';
+      $toNext.textContent = metaRight ? (t('to_next', 'To next') + ': ' + metaRight) : '';
     }
 
     // Progress bar animation
@@ -1048,7 +1141,7 @@ function updateToastContent(toast, item, stat, prevStat) {
     }
 
     if ($btn) {
-      $btn.href = getBaseUrl() + '/modules/overflowachievement/achievements';
+      $btn.href = window.OVERFLOWACHIEVEMENT_ACHIEVEMENTS_URL ? String(window.OVERFLOWACHIEVEMENT_ACHIEVEMENTS_URL) : (getBaseUrl() + '/modules/overflowachievement/achievements');
     }
 
     setToastThemeClass(toast, safeItem);
@@ -1060,7 +1153,7 @@ function updateToastContent(toast, item, stat, prevStat) {
     }
   } catch (e) {
     // Never let a rendering bug produce an empty toast.
-    try { if ($btn) $btn.href = getBaseUrl() + '/modules/overflowachievement/achievements'; } catch (e2) {}
+    try { if ($btn) $btn.href = window.OVERFLOWACHIEVEMENT_ACHIEVEMENTS_URL ? String(window.OVERFLOWACHIEVEMENT_ACHIEVEMENTS_URL) : (getBaseUrl() + '/modules/overflowachievement/achievements'); } catch (e2) {}
     try { setToastThemeClass(toast, safeItem); } catch (e3) {}
   }
 }
@@ -1538,7 +1631,7 @@ function addToBatch(items, stat, prevStat) {
 
         var val = $(this).val();
         if (!val) {
-            $p.text('Auto: a unique quote will be assigned.');
+            $p.text(t('preview_quote_auto', 'Auto: a unique quote will be assigned.'));
             return;
         }
 
@@ -1558,24 +1651,23 @@ function addToBatch(items, stat, prevStat) {
     $(document).off('click.oaHealth').on('click.oaHealth', '.oa-health-check', function (e) {
       e.preventDefault();
       if (typeof fsAjax !== 'function') return;
-      var base = getBaseUrl();
-      var url = base + '/modules/overflowachievement/health';
+      var url = window.OVERFLOWACHIEVEMENT_HEALTH_URL ? String(window.OVERFLOWACHIEVEMENT_HEALTH_URL) : (getBaseUrl() + '/modules/overflowachievement/health');
       var $btn = $(this);
       var $out = $('.oa-health-output');
       $btn.prop('disabled', true);
-      $out.text('Checking…');
+      $out.text(t('checking', 'Checking…'));
       fsAjax({}, url, function (resp) {
         $btn.prop('disabled', false);
         if (resp && resp.ok) {
-          $out.text('OK ✓ (user #' + resp.user_id + ')');
+          $out.text(t('health_ok', 'OK ✓ (user #:id)', { id: resp.user_id }));
         } else {
           var reason = resp && resp.reason ? resp.reason : 'unreachable';
-          $out.text('Not OK ✕ (' + reason + ')');
+          $out.text(t('health_not_ok', 'Not OK ✕ (:reason)', { reason: healthReasonLabel(reason) }));
         }
       }, true, function (xhr) {
         $btn.prop('disabled', false);
         var st = xhr && xhr.status ? xhr.status : 0;
-        $out.text('Error ✕ (HTTP ' + st + ')');
+        $out.text(t('health_error', 'Error ✕ (HTTP :status)', { status: st }));
       }, { method: 'get' });
     });
     // Live preview (no server): apply theme/effect instantly and show a demo toast.
@@ -1608,8 +1700,8 @@ function addToBatch(items, stat, prevStat) {
         id: 'demo',
         title: t('preview_title', 'Achievement Preview'),
         rarity: 'rare',
-        quote_text: 'Small wins, stacked, become gravity.',
-        quote_author: 'Overflow Achievement',
+        quote_text: t('preview_quote', 'Preview quote'),
+        quote_author: t('preview_author', 'Overflow Achievement'),
         icon_type: 'img',
         icon_value: base + '/modules/overflowachievement/icons/pack/icon_007.png',
         is_level_up: true
@@ -1638,7 +1730,7 @@ function addToBatch(items, stat, prevStat) {
 
     // Restrict confirmation prompts to explicitly marked buttons.
     $(document).off('click.oaConfirm').on('click.oaConfirm', '[data-oa-confirm]', function (e) {
-      var msg = $(this).attr('data-oa-confirm') || 'Are you sure?';
+      var msg = $(this).attr('data-oa-confirm') || t('confirm_are_you_sure', 'Are you sure?');
       if (!window.confirm(msg)) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -1652,6 +1744,66 @@ function addToBatch(items, stat, prevStat) {
       applyThemeAndEffect($scope);
       demoToast();
     });
+  }
+
+  function settingsLazyTabsInit() {
+    if (!window.jQuery) return;
+    var $ = window.jQuery;
+
+    function isPaneActive($pane) {
+      return $pane.hasClass('active') || $pane.hasClass('oa-active');
+    }
+
+    function loadPane($pane) {
+      if (!$pane || !$pane.length) return;
+      if ($pane.data('oaLoaded') || $pane.data('oaLoading')) return;
+
+      var url = String($pane.attr('data-oa-load-url') || '');
+      if (!url) return;
+
+      $pane.data('oaLoading', true);
+      var loadingText = String($pane.attr('data-oa-loading-text') || t('loading_achievements', 'Loading achievements…'));
+      $pane.html('<div class="alert alert-info oa-lazy-pane-loading">' + escapeHtml(loadingText) + '</div>');
+
+      $.ajax({
+        url: url,
+        method: 'GET',
+        dataType: 'html',
+        cache: false
+      }).done(function (html) {
+        $pane.html(html);
+        $pane.data('oaLoaded', true);
+        $pane.data('oaLoading', false);
+        try { $pane.find('.oa-quote-select').trigger('change'); } catch (e) {}
+        bindIconFallback($pane[0]);
+      }).fail(function () {
+        $pane.data('oaLoading', false);
+        var errorText = String($pane.attr('data-oa-error-text') || t('achievements_load_error', 'Could not load the achievements manager. Refresh the page and try again.'));
+        $pane.html('<div class="alert alert-danger">' + escapeHtml(errorText) + '</div>');
+      });
+    }
+
+    function loadActiveLazyPanes() {
+      $('.oa-settings .tab-pane[data-oa-load-url]').each(function () {
+        var $pane = $(this);
+        if (isPaneActive($pane)) {
+          loadPane($pane);
+        }
+      });
+    }
+
+    $(document).off('click.oaLazyTab').on('click.oaLazyTab', '.oa-settings .nav-tabs a[href^="#oa-tab-"]', function () {
+      var href = $(this).attr('href') || '';
+      if (!href) return;
+      var $pane = $(href);
+      if (!$pane.length || !$pane.is('[data-oa-load-url]')) return;
+      window.setTimeout(function () {
+        loadPane($pane);
+      }, 0);
+    });
+
+    loadActiveLazyPanes();
+    window.setTimeout(loadActiveLazyPanes, 0);
   }
 
   // --- Settings tab persistence (stay on the same tab after saving) ---
@@ -1742,6 +1894,8 @@ function addToBatch(items, stat, prevStat) {
         try { window.sessionStorage.setItem(OA_SETTINGS_TAB_KEY, cur); } catch (err2) {}
       }
     }, true);
+
+    settingsLazyTabsInit();
   }
 
   // Build mailbox quote rules JSON from the Quotes settings table.
@@ -1782,22 +1936,10 @@ function addToBatch(items, stat, prevStat) {
     });
   }
 
-  function init() {
-    initUserInteractionFlag();
-    // Always attempt to fetch unseen unlocks; server will respond ok=false if disabled/not installed.
-    if (typeof window.OVERFLOWACHIEVEMENT_EFFECT === 'undefined') { window.OVERFLOWACHIEVEMENT_EFFECT = 'confetti'; }
-    // Apply current (vars.js) + cached UI settings immediately so toasts rendered from pending use correct duration/theme.
-    if (window.OVERFLOWACHIEVEMENT_UI) {
-      applyUiConfig(window.OVERFLOWACHIEVEMENT_UI);
-      writeUiCache(window.OVERFLOWACHIEVEMENT_UI);
-    }
-    applyUiConfig(readUiCache());
-    bindDelegatedUi();
-    settingsTabPersistInit();
-    mailboxQuotesFormInit();
-    oaInitAchievementModal();
-    // Ensure broken icon pack images never create empty UI placeholders.
-    bindIconFallback(document);
+  function startRuntimePolling() {
+    if (window.__oa_runtime_started) return;
+    window.__oa_runtime_started = true;
+
     var enabled = (typeof window.OVERFLOWACHIEVEMENT_ENABLED === 'undefined') ? true : !!window.OVERFLOWACHIEVEMENT_ENABLED;
     if (!enabled) {
       return;
@@ -1827,6 +1969,30 @@ function addToBatch(items, stat, prevStat) {
     }
   }
 
+
+  function init() {
+    initUserInteractionFlag();
+    if (typeof window.OVERFLOWACHIEVEMENT_EFFECT === 'undefined') { window.OVERFLOWACHIEVEMENT_EFFECT = 'confetti'; }
+
+    // Apply any cached runtime bootstrap first so pending UI feels consistent
+    // even before the fresh bootstrap request returns.
+    if (window.OVERFLOWACHIEVEMENT_UI) {
+      applyUiConfig(window.OVERFLOWACHIEVEMENT_UI);
+      writeUiCache(window.OVERFLOWACHIEVEMENT_UI);
+    }
+    applyBootstrapConfig(readBootstrapCache());
+    applyUiConfig(readUiCache());
+
+    bindDelegatedUi();
+    settingsTabPersistInit();
+    mailboxQuotesFormInit();
+    oaInitAchievementModal();
+    bindIconFallback(document);
+
+    fetchBootstrapConfig(function () {
+      startRuntimePolling();
+    });
+  }
 
   // Achievement cabinet: details modal with progress
   function oaInitAchievementModal() {
@@ -1896,14 +2062,14 @@ function addToBatch(items, stat, prevStat) {
         try { iconSlot.innerHTML = renderIconHtml(iconType, iconValue); } catch (e) { iconSlot.innerHTML = ''; }
         try { bindIconFallback(modal); } catch (e2) {}
       }
-      if (raritySlot) raritySlot.textContent = String(rarity).toUpperCase();
+      if (raritySlot) raritySlot.textContent = rarityLabel(rarity);
       if (titleSlot) titleSlot.textContent = title;
       if (descSlot) descSlot.textContent = desc;
       if (hintSlot) {
         hintSlot.textContent = triggerHint || '';
         hintSlot.style.display = triggerHint ? 'block' : 'none';
       }
-      if (xpSlot) xpSlot.textContent = (xp > 0) ? ('+' + xp + ' XP') : '';
+      if (xpSlot) xpSlot.textContent = (xp > 0) ? ('+' + xp + ' ' + t('xp_short', 'XP')) : '';
 
       if (quoteSlot) {
         if (isUnlocked && quoteText) {
@@ -1936,9 +2102,9 @@ function addToBatch(items, stat, prevStat) {
         } catch (eScope) {}
         // If no label map, use a sane fallback.
         if (!scopeLabel && scope) {
-          if (scope === 'daily') scopeLabel = 'Daily';
-          else if (scope === 'per_conversation') scopeLabel = 'Per conversation';
-          else if (scope === 'lifetime') scopeLabel = 'Lifetime';
+          if (scope === 'daily') scopeLabel = t('scope_daily', 'Daily');
+          else if (scope === 'per_conversation') scopeLabel = t('scope_per_conversation', 'Per conversation');
+          else if (scope === 'lifetime') scopeLabel = t('scope_lifetime', 'Lifetime');
         }
         scopeSlot.textContent = scopeLabel;
         scopeSlot.style.display = scopeLabel ? 'inline-flex' : 'none';

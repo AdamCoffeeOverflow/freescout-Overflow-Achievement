@@ -29,25 +29,50 @@ class AchievementAdminController extends Controller
         }
     }
 
-
     protected function resolveTargetUserIds(Request $request, string $prefix, bool $includeAllUsers = false): array
     {
         $target = (string)($request->input($prefix.'.user_id_custom') ?: ($request->input($prefix.'.user_id') ?? 'me'));
 
         if ($target === 'all') {
-            if ($includeAllUsers && class_exists('\App\User') && defined('\App\User::TYPE_USER')) {
-                return \App\User::query()
-                    ->where('type', \App\User::TYPE_USER)
-                    ->pluck('id')
-                    ->map(function ($id) {
+            $userIds = [];
+
+            if ($includeAllUsers && class_exists('\\App\\User')) {
+                try {
+                    $query = \App\User::query();
+
+                    if (defined('\\App\\User::TYPE_USER')) {
+                        $types = [\App\User::TYPE_USER];
+                        if (defined('\\App\\User::TYPE_ADMIN')) {
+                            $types[] = \App\User::TYPE_ADMIN;
+                        }
+                        $query->whereIn('type', array_unique($types));
+                    }
+
+                    $userIds = array_merge($userIds, $query->pluck('id')->map(function ($id) {
                         return (int)$id;
-                    })
-                    ->toArray();
+                    })->toArray());
+                } catch (\Throwable $e) {
+                    // Fall through to progress-table based discovery.
+                }
             }
 
-            return UserStat::query()->pluck('user_id')->map(function ($id) {
+            $userIds = array_merge($userIds, UserStat::query()->pluck('user_id')->map(function ($id) {
                 return (int)$id;
-            })->toArray();
+            })->toArray());
+
+            if (Schema::hasTable('overflowachievement_unlocked')) {
+                $userIds = array_merge($userIds, UnlockedAchievement::query()->pluck('user_id')->map(function ($id) {
+                    return (int)$id;
+                })->toArray());
+            }
+
+            if (Schema::hasTable('overflowachievement_events')) {
+                $userIds = array_merge($userIds, Event::query()->pluck('user_id')->map(function ($id) {
+                    return (int)$id;
+                })->toArray());
+            }
+
+            return array_values(array_unique(array_filter($userIds)));
         }
 
         if (ctype_digit($target)) {
@@ -57,8 +82,48 @@ class AchievementAdminController extends Controller
         return [(int)$request->user()->id];
     }
 
+    protected function manageTabViewData(): array
+    {
+        $quoteLibrary = (array) config('overflowachievement.quotes.library', []);
+        $quoteBuckets = (array) config('overflowachievement.quotes.buckets', []);
+
+        $mailboxes = [];
+        try {
+            if (class_exists('\\App\\Mailbox')) {
+                $mailboxes = \App\Mailbox::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->toArray();
+            }
+        } catch (\Throwable $e) {
+            $mailboxes = [];
+        }
+
+        return [
+            'achievements' => Achievement::query()
+                ->orderBy('trigger')
+                ->orderBy('threshold')
+                ->get(),
+            'quote_library' => $quoteLibrary,
+            'quote_buckets' => $quoteBuckets,
+            'mailboxes' => $mailboxes,
+        ];
+    }
+
+    public function manageTab(Request $request)
+    {
+        $this->ensureAdmin($request);
+
+        if (!Schema::hasTable('overflowachievement_achievements')) {
+            return response()->view('overflowachievement::install_needed');
+        }
+
+        return response()->view('overflowachievement::settings/index_manage', $this->manageTabViewData());
+    }
+
     protected function buildLevelRepairSummary(array $userIds, bool $repair = false, bool $invalidOnly = true): array
     {
+
         $levelService = new LevelService();
         $stats = UserStat::query()
             ->whereIn('user_id', $userIds)
@@ -340,6 +405,7 @@ class AchievementAdminController extends Controller
     /**
      * Reset all achievement progress for a user or for all users.
      */
+
     public function reset(Request $request)
     {
         $this->ensureAdmin($request);
@@ -361,83 +427,37 @@ class AchievementAdminController extends Controller
                 return redirect()->back()->with('error', __('To reset progress, type RESET in the confirmation field.'));
             }
         }
-        $userIds = [];
-        if ($target === 'all') {
-            // Reset must include users who have not generated stats rows yet.
-            if (class_exists('\\App\\User') && defined('\\App\\User::TYPE_USER')) {
-                $userIds = \App\User::query()
-                    ->where('type', \App\User::TYPE_USER)
-                    ->pluck('id')
-                    ->toArray();
-            } else {
-                // Fallback: be conservative.
-                $userIds = UserStat::query()->pluck('user_id')->toArray();
-            }
-        } elseif (ctype_digit($target)) {
-            $userIds = [(int)$target];
-        } else {
-            $userIds = [(int)$request->user()->id];
-        }
 
+        $userIds = $this->resolveTargetUserIds($request, 'reset', true);
         if (empty($userIds)) {
             return redirect()->back()->with('success', __('Nothing to reset.'));
         }
 
-        DB::transaction(function () use ($userIds) {
-            // Delete related rows first.
+        DB::transaction(function () use ($userIds, $target) {
             if (Schema::hasTable('overflowachievement_unlocked')) {
                 UnlockedAchievement::query()->whereIn('user_id', $userIds)->delete();
             }
+
             if (Schema::hasTable('overflowachievement_events')) {
                 Event::query()->whereIn('user_id', $userIds)->delete();
             }
 
-            // Reset stats (be defensive about columns across versions).
-            // We reset all known counters and also any *_count columns that may be introduced later.
-            $table = (new UserStat())->getTable();
-            $columns = Schema::getColumnListing($table);
-            $updates = [];
+            UserStat::query()->whereIn('user_id', $userIds)->delete();
 
-            foreach ($columns as $col) {
-                if ($col === 'user_id' || $col === 'created_at') {
-                    continue;
-                }
-                if ($col === 'updated_at') {
-                    $updates[$col] = now();
-                    continue;
-                }
-                if ($col === 'level') {
-                    $updates[$col] = 1;
-                    continue;
-                }
-
-                // Null out last activity fields.
-                if (in_array($col, ['last_activity_at', 'last_activity_date'], true) || Str::startsWith($col, 'last_')) {
-                    $updates[$col] = null;
-                    continue;
-                }
-
-                // Reset counters & numeric trackers.
-                if (in_array($col, ['daily_xp'], true)) {
-                    $updates[$col] = 0;
-                    continue;
-                }
-                if (in_array($col, ['daily_xp_date'], true)) {
-                    $updates[$col] = null;
-                    continue;
-                }
-
-                if (
-                    in_array($col, ['xp_total', 'streak_current', 'streak_best'], true) ||
-                    Str::endsWith($col, '_count') ||
-                    Str::endsWith($col, '_total')
-                ) {
-                    $updates[$col] = 0;
-                }
-            }
-
-            if (!empty($updates)) {
-                UserStat::query()->whereIn('user_id', $userIds)->update($updates);
+            if ($target !== 'all' && count($userIds) === 1) {
+                UserStat::query()->updateOrCreate(
+                    ['user_id' => (int)$userIds[0]],
+                    [
+                        'xp_total' => 0,
+                        'daily_xp' => 0,
+                        'daily_xp_date' => null,
+                        'level' => 1,
+                        'streak_current' => 0,
+                        'streak_best' => 0,
+                        'last_activity_at' => null,
+                        'last_activity_date' => null,
+                    ]
+                );
             }
         });
 
@@ -475,7 +495,7 @@ class AchievementAdminController extends Controller
             'seen_at' => null,
             'quote_id' => 'test',
             'quote_text' => 'This is a test unlock. The universe is weird, enjoy the confetti.',
-            'quote_author' => 'OverflowAchievement',
+            'quote_author' => __('Overflow Achievement'),
         ]);
 
         return redirect()->back()->with('success', __('Test notification queued. Reload as the target user to see it.'));
@@ -497,12 +517,12 @@ class AchievementAdminController extends Controller
         $item = [
             'id' => 0,
             'key' => $def ? (string)$def->key : 'test_trophy',
-            'title' => $def ? (string)$def->title : 'Test Trophy',
+            'title' => $def ? $def->display_title : __('Test Trophy'),
             'rarity' => $def ? (string)$def->rarity : 'epic',
             'icon_type' => $def ? (string)$def->icon_type : 'fa',
             'icon_value' => $def ? (string)$def->icon_value : 'fa-trophy',
-            'quote_text' => 'This is a live preview. If your brain smiles, the UI is doing its job.',
-            'quote_author' => 'OverflowAchievement',
+            'quote_text' => __('This is a live preview. If your brain smiles, the UI is doing its job.'),
+            'quote_author' => __('Overflow Achievement'),
             'is_level_up' => true,
         ];
 

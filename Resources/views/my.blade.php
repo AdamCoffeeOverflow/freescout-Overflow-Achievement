@@ -84,7 +84,8 @@
                             $key = (string)$row->achievement_key;
                             $is_level = str_starts_with($key, 'level_up_');
                             $def = $is_level ? null : ($defs[$key] ?? null);
-                            $title = $is_level ? __('Level Up') : ($def ? __($def->title) : $key);
+                            $title = $is_level ? __('Level Up') : ($def ? $def->display_title : \Modules\OverflowAchievement\Entities\Achievement::translateText('', $key, 'title'));
+                            if ($title === '') { $title = $key; }
                             $rarity = $is_level ? 'epic' : ($def ? $def->rarity : 'common');
                             $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
                             $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');
@@ -126,10 +127,10 @@
                             <div class="oa-recent-body">
                                 <div class="oa-recent-title">{{ $title }}</div>
                                 @if (!empty($row->quote_text))
-                                    <div class="oa-recent-quote">“{{ $row->quote_text }}”</div>
+                                    <div class="oa-recent-quote">“{{ $row->display_quote_text }}”</div>
                                 @endif
                             </div>
-                            <div class="oa-recent-date">{{ (!empty($row->unlocked_at) && method_exists($row->unlocked_at, 'format')) ? $row->unlocked_at->format('M j') : '' }}</div>
+                            <div class="oa-recent-date">{{ (!empty($row->unlocked_at) && method_exists($row->unlocked_at, 'translatedFormat')) ? $row->unlocked_at->translatedFormat('j M') : (method_exists($row->unlocked_at, 'format') ? $row->unlocked_at->format('Y-m-d') : '') }}</div>
                         </div>
                     @empty
                         <div class="alert alert-info">{{ __('No achievements yet — go close something heroic.') }}</div>

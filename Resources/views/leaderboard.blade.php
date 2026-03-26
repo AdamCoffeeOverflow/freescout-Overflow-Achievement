@@ -50,7 +50,7 @@
                                             <td>
                                                 {{ $name !== '' ? $name : ('#'.$row->user_id) }}
                                             </td>
-                                            <td><span class="oa-pill">Lv {{ (int)$row->level }}</span></td>
+                                            <td><span class="oa-pill">{{ __('Level :n', ['n' => (int)$row->level]) }}</span></td>
                                             <td>{{ (int)$row->xp_total }}</td>
                                             <td>{{ (int)$row->streak_current }}</td>
                                         </tr>
@@ -70,7 +70,8 @@
                                     $key = (string)$row->achievement_key;
                                     $is_level = str_starts_with($key, 'level_up_');
                                     $def = $is_level ? null : ($defs[$key] ?? null);
-                                    $title = $is_level ? __('Level Up') : ($def ? __($def->title) : $key);
+                                    $title = $is_level ? __('Level Up') : ($def ? $def->display_title : \Modules\OverflowAchievement\Entities\Achievement::translateText('', $key, 'title'));
+                                    if ($title === '') { $title = $key; }
                                     $rarity = $is_level ? 'epic' : ($def ? $def->rarity : 'common');
                                     $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
                                     $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');

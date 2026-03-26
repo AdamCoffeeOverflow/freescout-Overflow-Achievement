@@ -1,11 +1,5 @@
 @php
     $is_admin = Auth::user() && Auth::user()->isAdmin();
-    $achievements = $is_admin
-        ? \Modules\OverflowAchievement\Entities\Achievement::query()
-            ->orderBy('trigger')
-            ->orderBy('threshold')
-            ->get()
-        : collect();
 
     // FreeScout passes $settings as key => ['value' => ...] arrays.
     $settings_values = [];
@@ -66,6 +60,8 @@
         .oa-advanced.oa-open { display: block; }
         .oa-advanced-toggle { cursor: pointer; user-select: none; }
         .oa-advanced-toggle .glyphicon { margin-right: 6px; }
+        .oa-lazy-pane-note { margin-top: 12px; }
+        .oa-lazy-pane-loading { padding: 14px 16px; }
     </style>
 
     <div class="oa-settings-header">
@@ -114,30 +110,18 @@
                 'tones' => $tones,
             ])
 
-            <div role="tabpanel" class="tab-pane" id="oa-tab-manage">
-                @php
-                    $quote_library = (array) config('overflowachievement.quotes.library', []);
-                    $quote_buckets = (array) config('overflowachievement.quotes.buckets', []);
-
-                    $mailboxes_arr = [];
-                    try {
-                        if (class_exists('\App\Mailbox')) {
-                            $mailboxes_arr = \App\Mailbox::query()
-                                ->orderBy('name')
-                                ->get(['id', 'name'])
-                                ->toArray();
-                        }
-                    } catch (\Throwable $e) {
-                        $mailboxes_arr = [];
-                    }
-                @endphp
-
-                @include('overflowachievement::settings/index_manage', [
-                    'achievements' => $achievements,
-                    'quote_library' => $quote_library,
-                    'quote_buckets' => $quote_buckets,
-                    'mailboxes' => $mailboxes_arr,
-                ])
+            <div
+                role="tabpanel"
+                class="tab-pane"
+                id="oa-tab-manage"
+                data-oa-load-url="{{ route('overflowachievement.admin.manage_tab') }}"
+                data-oa-loading-text="{{ __('Loading achievements…') }}"
+                data-oa-error-text="{{ __('Could not load the achievements manager. Refresh the page and try again.') }}"
+            >
+                <div class="alert alert-info oa-lazy-pane-loading">
+                    <strong>{{ __('Achievements') }}</strong><br>
+                    {{ __('Achievements load on demand to keep Settings fast. Open this tab when you want to create, edit, or review trophies.') }}
+                </div>
             </div>
 
             <div role="tabpanel" class="tab-pane" id="oa-tab-tools">

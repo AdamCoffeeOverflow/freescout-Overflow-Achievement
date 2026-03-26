@@ -10,6 +10,9 @@ use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
 use Modules\OverflowAchievement\Services\LevelService;
 use Modules\OverflowAchievement\Services\QuoteService;
+use Modules\OverflowAchievement\Support\AchievementCatalog;
+use Modules\OverflowAchievement\Support\QuoteCatalog;
+use Modules\OverflowAchievement\Support\TriggerCatalog;
 
 class OverflowAchievementController extends Controller
 {
@@ -19,6 +22,93 @@ class OverflowAchievementController extends Controller
         $levels = app('overflowachievement.levels');
 
         return $levels->syncStatLevel($stat, $persist);
+    }
+
+    protected function runtimeUiConfig(): array
+    {
+        return [
+            'confetti' => (bool)\Option::get('overflowachievement.ui.confetti', 1),
+            'effect' => (string)\Option::get('overflowachievement.ui.effect', 'confetti'),
+            'toast_theme' => (string)\Option::get('overflowachievement.ui.toast_theme', 'neon'),
+            'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
+            'sound_cooldown_ms' => (int)\Option::get('overflowachievement.ui.sound_cooldown_ms', (int)config('overflowachievement.ui.sound_cooldown_ms', 1200)),
+            'toast_sticky' => (bool)\Option::get('overflowachievement.ui.toast_sticky', 0),
+            'toast_duration_ms' => (int)\Option::get('overflowachievement.ui.toast_duration_ms', 10000),
+            'toast_stack_enabled' => (bool)\Option::get('overflowachievement.ui.toast_stack_enabled', 0),
+            'toast_stack_max' => (int)\Option::get('overflowachievement.ui.toast_stack_max', 2),
+        ];
+    }
+
+    protected function runtimeI18n(): array
+    {
+        return [
+            'achievement' => __('Achievement'),
+            'level_up' => __('Level Up!'),
+            'trophy_unlocked' => __('Trophy Unlocked'),
+            'achievements_unlocked' => __('Achievements Unlocked'),
+            'achievements_count' => __('+:count achievements', ['count' => ':count']),
+            'queued' => __('queued'),
+            'unlocked_list' => __('Unlocked'),
+            'unlocked' => __('Unlocked'),
+            'locked' => __('Locked'),
+            'preview_title' => __('Achievement Preview'),
+            'dismiss' => __('Dismiss'),
+            'view_trophies' => __('View trophies'),
+            'more' => __('more'),
+            'lv_short' => __('Lv'),
+            'xp_short' => __('XP'),
+            'to_next' => __('To next'),
+            'progress' => __('Progress'),
+            'scope_lifetime' => __('Lifetime'),
+            'scope_daily' => __('Daily'),
+            'scope_per_conversation' => __('Per conversation'),
+            'rarity_common' => __('Common'),
+            'rarity_rare' => __('Rare'),
+            'rarity_epic' => __('Epic'),
+            'rarity_legendary' => __('Legendary'),
+            'preview_quote_auto' => __('Auto: a unique quote will be assigned.'),
+            'checking' => __('Checking…'),
+            'health_ok' => __('OK ✓ (user #:id)', ['id' => ':id']),
+            'health_not_ok' => __('Not OK ✕ (:reason)', ['reason' => ':reason']),
+            'health_error' => __('Error ✕ (HTTP :status)', ['status' => ':status']),
+            'health_reason_disabled' => __('Disabled'),
+            'health_reason_missing_tables' => __('Database tables are missing'),
+            'health_reason_unreachable' => __('Unreachable'),
+            'confirm_are_you_sure' => __('Are you sure?'),
+            'preview_quote' => __('Preview quote'),
+            'preview_author' => __('Overflow Achievement'),
+        ];
+    }
+
+    protected function runtimeBootstrapPayload(Request $request): array
+    {
+        return [
+            'enabled' => (bool)\Option::get('overflowachievement.enabled', config('overflowachievement.enabled') ? 1 : 0),
+            'urls' => [
+                'unseen' => route('overflowachievement.unseen'),
+                'mark_seen' => route('overflowachievement.mark_seen'),
+                'bootstrap' => route('overflowachievement.bootstrap'),
+                'achievements' => route('overflowachievement.achievements'),
+                'health' => route('overflowachievement.health'),
+            ],
+            'ui' => $this->runtimeUiConfig(),
+            'i18n' => $this->runtimeI18n(),
+            'triggers' => [
+                'labels' => TriggerCatalog::labels(),
+                'hints' => TriggerCatalog::hints(),
+                'scopes' => TriggerCatalog::scopes(),
+                'scope_labels' => [
+                    'lifetime' => __('Lifetime'),
+                    'daily' => __('Daily'),
+                    'per_conversation' => __('Per conversation'),
+                ],
+            ],
+        ];
+    }
+
+    public function bootstrap(Request $request)
+    {
+        return response()->json(array_merge(['ok' => true], $this->runtimeBootstrapPayload($request)));
     }
 
     public function my(Request $request)
@@ -37,8 +127,6 @@ class OverflowAchievementController extends Controller
             'streak_current' => 0,
             'streak_best' => 0,
         ]);
-
-        $stat = $this->syncDisplayedLevel($stat, true);
 
         $stat = $this->syncDisplayedLevel($stat, true);
 
@@ -74,7 +162,7 @@ class OverflowAchievementController extends Controller
      * - `unlocked`: unlocked achievements for the user keyed by achievement key.
      * - `counts`: per-trigger progress counts derived from the user's stats (when available).
      * - `quotes_by_key`: pre-resolved quotes for unlocked achievements (may be empty on error).
-     * - `trigger_labels` and `trigger_hints`: UI labels and hints from configuration.
+     * - `trigger_labels` and `trigger_hints`: UI labels and hints resolved at runtime.
      *
      * @param \Illuminate\Http\Request $request The current HTTP request (used to obtain the authenticated user).
      * @return \Illuminate\View\View|\Illuminate\Contracts\View\View The rendered achievements or install-needed view.
@@ -130,6 +218,12 @@ class OverflowAchievementController extends Controller
             foreach ($triggerField as $trigger => $field) {
                 $counts[$trigger] = (int)($stat->{$field} ?? 0);
             }
+
+            foreach (\Modules\OverflowAchievement\Support\TriggerCatalog::aliases() as $alias => $canonicalTrigger) {
+                if (array_key_exists($canonicalTrigger, $counts) && !array_key_exists($alias, $counts)) {
+                    $counts[$alias] = (int) $counts[$canonicalTrigger];
+                }
+            }
         }
 
         $defs = Achievement::query()
@@ -167,8 +261,8 @@ class OverflowAchievementController extends Controller
             'unlocked' => $unlocked,
             'counts' => $counts,
             'quotes_by_key' => $quotes_by_key,
-            'trigger_labels' => (array)config('overflowachievement.triggers.labels', []),
-            'trigger_hints'  => (array)config('overflowachievement.triggers.hints', []),
+            'trigger_labels' => TriggerCatalog::labels(),
+            'trigger_hints'  => TriggerCatalog::hints(),
         ]);
     }
 
@@ -267,7 +361,7 @@ class OverflowAchievementController extends Controller
         if (!Schema::hasTable('overflowachievement_user_stats') || !Schema::hasTable('overflowachievement_unlocked')) {
             return response()->json([
                 'ok' => false,
-                'message' => 'OverflowAchievement is not installed (missing DB tables). Run database migrations.',
+                'message' => __('OverflowAchievement is not installed (missing DB tables). Run database migrations.'),
             ]);
         }
 
@@ -308,6 +402,8 @@ class OverflowAchievementController extends Controller
                 ->get([
                     'overflowachievement_unlocked.*',
                     'a.title as def_title',
+                    'a.trigger as def_trigger',
+                    'a.threshold as def_threshold',
                     'a.rarity as def_rarity',
                     'a.icon_type as def_icon_type',
                     'a.icon_value as def_icon_value',
@@ -380,7 +476,12 @@ class OverflowAchievementController extends Controller
             $is_level_up = false;
 
             // Prefer joined definition columns when present.
-            $title = isset($row->def_title) ? (string)$row->def_title : $key;
+            $title = isset($row->def_title)
+                ? Achievement::translateText((string)$row->def_title, $key, 'title', (string)($row->def_trigger ?? ''), (int)($row->def_threshold ?? 0))
+                : Achievement::translateText('', $key, 'title', (string)($row->def_trigger ?? ''), (int)($row->def_threshold ?? 0));
+            if ($title === '') {
+                $title = $key;
+            }
             $rarity = isset($row->def_rarity) ? (string)$row->def_rarity : 'common';
             $icon_type = isset($row->def_icon_type) ? (string)$row->def_icon_type : 'fa';
             $icon_value = isset($row->def_icon_value) ? (string)$row->def_icon_value : 'fa-trophy';
@@ -404,8 +505,8 @@ class OverflowAchievementController extends Controller
                 'icon_type' => $icon_type,
                 'icon_value' => $icon_value,
                 'xp_reward' => $xp_reward,
-                'quote_text' => (string)($row->quote_text ?? ''),
-                'quote_author' => (string)($row->quote_author ?? ''),
+                'quote_text' => QuoteCatalog::localizeText((string)($row->quote_id ?? ''), (string)($row->quote_text ?? '')),
+                'quote_author' => QuoteCatalog::localizeAuthor((string)($row->quote_id ?? ''), (string)($row->quote_author ?? '')),
                 // Compatibility: older Laravel versions used by FreeScout may not have optional().
                 // unlocked_at is usually a Carbon instance, but can be a string in edge cases.
                 'unlocked_at' => (function () use ($row) {
@@ -439,14 +540,7 @@ class OverflowAchievementController extends Controller
                 return response()->json([
                     'ok' => true,
                     'enabled' => true,
-                    'ui' => [
-                        'confetti' => (bool)\Option::get('overflowachievement.ui.confetti', 1),
-                        'effect' => (string)\Option::get('overflowachievement.ui.effect', 'confetti'),
-                        'toast_theme' => (string)\Option::get('overflowachievement.ui.toast_theme', 'neon'),
-                        'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
-                        'toast_sticky' => (bool)\Option::get('overflowachievement.ui.toast_sticky', 0),
-                        'toast_duration_ms' => (int)\Option::get('overflowachievement.ui.toast_duration_ms', 10000),
-                    ],
+                    'ui' => $this->runtimeUiConfig(),
                     'item' => $payload->first(),
                     'ids' => $ids,
                     'items' => [],
@@ -474,14 +568,7 @@ class OverflowAchievementController extends Controller
                 return response()->json([
                     'ok' => true,
                     'enabled' => true,
-                    'ui' => [
-                        'confetti' => (bool)\Option::get('overflowachievement.ui.confetti', 1),
-                        'effect' => (string)\Option::get('overflowachievement.ui.effect', 'confetti'),
-                        'toast_theme' => (string)\Option::get('overflowachievement.ui.toast_theme', 'neon'),
-                        'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
-                        'toast_sticky' => (bool)\Option::get('overflowachievement.ui.toast_sticky', 0),
-                        'toast_duration_ms' => (int)\Option::get('overflowachievement.ui.toast_duration_ms', 10000),
-                    ],
+                    'ui' => $this->runtimeUiConfig(),
                     'item' => [
                         'is_batch' => true,
                         'rarity' => $best,
@@ -505,16 +592,7 @@ class OverflowAchievementController extends Controller
         return response()->json([
             'ok' => true,
             'enabled' => true,
-            'ui' => [
-                // Backward compatible flag + richer UI config
-                'confetti' => (bool)\Option::get('overflowachievement.ui.confetti', 1),
-                'effect' => (string)\Option::get('overflowachievement.ui.effect', 'confetti'),
-                'toast_theme' => (string)\Option::get('overflowachievement.ui.toast_theme', 'neon'),
-                'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
-                // Toast behavior
-                'toast_sticky' => (bool)\Option::get('overflowachievement.ui.toast_sticky', 0),
-                'toast_duration_ms' => (int)\Option::get('overflowachievement.ui.toast_duration_ms', 10000),
-            ],
+            'ui' => $this->runtimeUiConfig(),
             'items' => $payload,
             'prev_stat' => $prev_stat,
             'stat' => [
