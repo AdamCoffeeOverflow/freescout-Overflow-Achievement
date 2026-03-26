@@ -52,20 +52,8 @@
 @endphp
 
 <div class="oa-settings">
-    <style>
-        .oa-settings .nav-tabs > li > a { cursor: pointer; }
-        .oa-settings .oa-settings-header { margin-bottom: 10px; }
-        .oa-settings .oa-settings-note { margin-top: 12px; }
-        .oa-advanced { display: none; }
-        .oa-advanced.oa-open { display: block; }
-        .oa-advanced-toggle { cursor: pointer; user-select: none; }
-        .oa-advanced-toggle .glyphicon { margin-right: 6px; }
-        .oa-lazy-pane-note { margin-top: 12px; }
-        .oa-lazy-pane-loading { padding: 14px 16px; }
-    </style>
 
     <div class="oa-settings-header">
-        <h3 style="margin:0;">{{ __('Achievement') }}</h3>
         <div class="text-muted">
             {{ __('XP, levels, trophies, and small celebrations that don’t break your helpdesk.') }}
         </div>

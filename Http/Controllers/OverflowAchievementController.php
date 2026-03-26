@@ -8,107 +8,17 @@ use Illuminate\Support\Facades\Schema;
 use Modules\OverflowAchievement\Entities\Achievement;
 use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
-use Modules\OverflowAchievement\Services\LevelService;
 use Modules\OverflowAchievement\Services\QuoteService;
-use Modules\OverflowAchievement\Support\AchievementCatalog;
+use Modules\OverflowAchievement\Services\RuntimeBootstrapService;
+use Modules\OverflowAchievement\Services\UserProgressService;
 use Modules\OverflowAchievement\Support\QuoteCatalog;
 use Modules\OverflowAchievement\Support\TriggerCatalog;
 
 class OverflowAchievementController extends Controller
 {
-    protected function syncDisplayedLevel(UserStat $stat, bool $persist = false): UserStat
-    {
-        /** @var LevelService $levels */
-        $levels = app('overflowachievement.levels');
-
-        return $levels->syncStatLevel($stat, $persist);
-    }
-
-    protected function runtimeUiConfig(): array
-    {
-        return [
-            'confetti' => (bool)\Option::get('overflowachievement.ui.confetti', 1),
-            'effect' => (string)\Option::get('overflowachievement.ui.effect', 'confetti'),
-            'toast_theme' => (string)\Option::get('overflowachievement.ui.toast_theme', 'neon'),
-            'sound_enabled' => (bool)\Option::get('overflowachievement.ui.sound_enabled', config('overflowachievement.ui.sound_enabled') ? 1 : 0),
-            'sound_cooldown_ms' => (int)\Option::get('overflowachievement.ui.sound_cooldown_ms', (int)config('overflowachievement.ui.sound_cooldown_ms', 1200)),
-            'toast_sticky' => (bool)\Option::get('overflowachievement.ui.toast_sticky', 0),
-            'toast_duration_ms' => (int)\Option::get('overflowachievement.ui.toast_duration_ms', 10000),
-            'toast_stack_enabled' => (bool)\Option::get('overflowachievement.ui.toast_stack_enabled', 0),
-            'toast_stack_max' => (int)\Option::get('overflowachievement.ui.toast_stack_max', 2),
-        ];
-    }
-
-    protected function runtimeI18n(): array
-    {
-        return [
-            'achievement' => __('Achievement'),
-            'level_up' => __('Level Up!'),
-            'trophy_unlocked' => __('Trophy Unlocked'),
-            'achievements_unlocked' => __('Achievements Unlocked'),
-            'achievements_count' => __('+:count achievements', ['count' => ':count']),
-            'queued' => __('queued'),
-            'unlocked_list' => __('Unlocked'),
-            'unlocked' => __('Unlocked'),
-            'locked' => __('Locked'),
-            'preview_title' => __('Achievement Preview'),
-            'dismiss' => __('Dismiss'),
-            'view_trophies' => __('View trophies'),
-            'more' => __('more'),
-            'lv_short' => __('Lv'),
-            'xp_short' => __('XP'),
-            'to_next' => __('To next'),
-            'progress' => __('Progress'),
-            'scope_lifetime' => __('Lifetime'),
-            'scope_daily' => __('Daily'),
-            'scope_per_conversation' => __('Per conversation'),
-            'rarity_common' => __('Common'),
-            'rarity_rare' => __('Rare'),
-            'rarity_epic' => __('Epic'),
-            'rarity_legendary' => __('Legendary'),
-            'preview_quote_auto' => __('Auto: a unique quote will be assigned.'),
-            'checking' => __('Checking…'),
-            'health_ok' => __('OK ✓ (user #:id)', ['id' => ':id']),
-            'health_not_ok' => __('Not OK ✕ (:reason)', ['reason' => ':reason']),
-            'health_error' => __('Error ✕ (HTTP :status)', ['status' => ':status']),
-            'health_reason_disabled' => __('Disabled'),
-            'health_reason_missing_tables' => __('Database tables are missing'),
-            'health_reason_unreachable' => __('Unreachable'),
-            'confirm_are_you_sure' => __('Are you sure?'),
-            'preview_quote' => __('Preview quote'),
-            'preview_author' => __('Overflow Achievement'),
-        ];
-    }
-
-    protected function runtimeBootstrapPayload(Request $request): array
-    {
-        return [
-            'enabled' => (bool)\Option::get('overflowachievement.enabled', config('overflowachievement.enabled') ? 1 : 0),
-            'urls' => [
-                'unseen' => route('overflowachievement.unseen'),
-                'mark_seen' => route('overflowachievement.mark_seen'),
-                'bootstrap' => route('overflowachievement.bootstrap'),
-                'achievements' => route('overflowachievement.achievements'),
-                'health' => route('overflowachievement.health'),
-            ],
-            'ui' => $this->runtimeUiConfig(),
-            'i18n' => $this->runtimeI18n(),
-            'triggers' => [
-                'labels' => TriggerCatalog::labels(),
-                'hints' => TriggerCatalog::hints(),
-                'scopes' => TriggerCatalog::scopes(),
-                'scope_labels' => [
-                    'lifetime' => __('Lifetime'),
-                    'daily' => __('Daily'),
-                    'per_conversation' => __('Per conversation'),
-                ],
-            ],
-        ];
-    }
-
     public function bootstrap(Request $request)
     {
-        return response()->json(array_merge(['ok' => true], $this->runtimeBootstrapPayload($request)));
+        return response()->json(array_merge(['ok' => true], app(RuntimeBootstrapService::class)->payload()));
     }
 
     public function my(Request $request)
@@ -119,20 +29,14 @@ class OverflowAchievementController extends Controller
 
         $user = $request->user();
 
-        $stat = UserStat::query()->firstOrCreate(['user_id' => $user->id], [
-            'xp_total' => 0,
-            'level' => 1,
-            'closes_count' => 0,
-            'first_replies_count' => 0,
-            'streak_current' => 0,
-            'streak_best' => 0,
-        ]);
+        /** @var UserProgressService $progress */
+        $progress = app(UserProgressService::class);
+        $stat = $progress->statForUser((int) $user->id, false);
+        $stat = $progress->syncDisplayedLevel($stat, false);
+        $snapshot = $progress->snapshot($stat);
 
-        $stat = $this->syncDisplayedLevel($stat, true);
-
-        $levels = app('overflowachievement.levels');
-        $cur_min = $levels->levelMinXp((int)$stat->level);
-        $next_min = $levels->nextLevelMinXp((int)$stat->level);
+        $cur_min = $snapshot['cur_min'];
+        $next_min = $snapshot['next_min'];
 
         $recent = UnlockedAchievement::query()
             ->where('user_id', $user->id)
@@ -175,55 +79,14 @@ class OverflowAchievementController extends Controller
 
         $user = $request->user();
 
-        // Stats are used to show per-achievement progress (modal + cabinet UI).
+        /** @var UserProgressService $progress */
+        $progress = app(UserProgressService::class);
+
         $stat = null;
         $counts = [];
         if (Schema::hasTable('overflowachievement_user_stats')) {
-            $stat = UserStat::query()->firstOrCreate(['user_id' => $user->id], [
-                'xp_total' => 0,
-                'level' => 1,
-            ]);
-
-            $triggerField = [
-                'close_conversation' => 'closes_count',
-                'first_reply' => 'first_replies_count',
-                'note_added' => 'notes_count',
-                'assigned' => 'assigned_count',
-                'merged' => 'merged_count',
-                'moved' => 'moved_count',
-                'forwarded' => 'forwarded_count',
-                'attachment_added' => 'attachments_count',
-                'customer_created' => 'customers_created_count',
-                'customer_updated' => 'customer_updates_count',
-                'conversation_created' => 'conversations_created_count',
-                'subject_changed' => 'subjects_changed_count',
-                'reply_sent' => 'replies_sent_count',
-                'customer_replied' => 'customer_replies_count',
-                'set_pending' => 'pending_set_count',
-                'marked_spam' => 'spam_marked_count',
-                'deleted_conversation' => 'deleted_count',
-                'customer_merged' => 'customers_merged_count',
-                'focus_time' => 'focus_minutes',
-                'sla_first_response_ultra' => 'sla_first_response_ultra_count',
-                'sla_first_response_fast'  => 'sla_first_response_fast_count',
-                'sla_fast_reply_ultra'     => 'sla_fast_reply_ultra_count',
-                'sla_fast_reply'           => 'sla_fast_reply_count',
-                'sla_resolve_4h'           => 'sla_resolve_4h_count',
-                'sla_resolve_24h'          => 'sla_resolve_24h_count',
-                'streak_days' => 'streak_current',
-                'xp_total' => 'xp_total',
-                'actions_total' => 'actions_count',
-            ];
-
-            foreach ($triggerField as $trigger => $field) {
-                $counts[$trigger] = (int)($stat->{$field} ?? 0);
-            }
-
-            foreach (\Modules\OverflowAchievement\Support\TriggerCatalog::aliases() as $alias => $canonicalTrigger) {
-                if (array_key_exists($canonicalTrigger, $counts) && !array_key_exists($alias, $counts)) {
-                    $counts[$alias] = (int) $counts[$canonicalTrigger];
-                }
-            }
+            $stat = $progress->statForUser((int) $user->id, false);
+            $counts = $progress->countsFromStat($stat);
         }
 
         $defs = Achievement::query()
@@ -282,8 +145,10 @@ class OverflowAchievementController extends Controller
             ->limit(50)
             ->get();
 
+        /** @var UserProgressService $progress */
+        $progress = app(UserProgressService::class);
         foreach ($top as $row) {
-            $this->syncDisplayedLevel($row, true);
+            $progress->syncDisplayedLevel($row, false);
         }
 
         // Keep this list short so the page stays snappy and the UI doesn't look "infinite".
@@ -367,19 +232,16 @@ class OverflowAchievementController extends Controller
 
         $user = $request->user();
 
-        $stat = UserStat::query()->firstOrCreate(['user_id' => $user->id], [
-            'xp_total' => 0,
-            'level' => 1,
-        ]);
-
-        $stat = $this->syncDisplayedLevel($stat, true);
+        /** @var UserProgressService $progressService */
+        $progressService = app(UserProgressService::class);
+        $stat = $progressService->statForUser((int) $user->id, false);
+        $stat = $progressService->syncDisplayedLevel($stat, false);
 
         $levels = app('overflowachievement.levels');
-        $cur_min = $levels->levelMinXp((int)$stat->level);
-        $next_min = $levels->nextLevelMinXp((int)$stat->level);
-        $den = max(1, $next_min - $cur_min);
-        $progress = (int)round((($stat->xp_total - $cur_min) / $den) * 100);
-        $progress = max(0, min(100, $progress));
+        $currentSnapshot = $progressService->snapshot($stat);
+        $cur_min = $currentSnapshot['cur_min'];
+        $next_min = $currentSnapshot['next_min'];
+        $progress = $currentSnapshot['progress'];
 
         // Optional: return a single "batch" toast payload to reduce network chatter and
         // client-side work during unlock bursts.
@@ -540,7 +402,7 @@ class OverflowAchievementController extends Controller
                 return response()->json([
                     'ok' => true,
                     'enabled' => true,
-                    'ui' => $this->runtimeUiConfig(),
+                    'ui' => app(RuntimeBootstrapService::class)->uiConfig(),
                     'item' => $payload->first(),
                     'ids' => $ids,
                     'items' => [],
@@ -568,7 +430,7 @@ class OverflowAchievementController extends Controller
                 return response()->json([
                     'ok' => true,
                     'enabled' => true,
-                    'ui' => $this->runtimeUiConfig(),
+                    'ui' => app(RuntimeBootstrapService::class)->uiConfig(),
                     'item' => [
                         'is_batch' => true,
                         'rarity' => $best,
@@ -592,7 +454,7 @@ class OverflowAchievementController extends Controller
         return response()->json([
             'ok' => true,
             'enabled' => true,
-            'ui' => $this->runtimeUiConfig(),
+            'ui' => app(RuntimeBootstrapService::class)->uiConfig(),
             'items' => $payload,
             'prev_stat' => $prev_stat,
             'stat' => [

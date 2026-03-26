@@ -58,6 +58,16 @@ The migration that hardens hot-path indexes is designed to be **idempotent** on 
 
 
 ## Localization
+
+### Quote coverage note
+
+Built-in quote text is fully localized for `en` and `fr`.
+For `es`, `de`, `it`, `nl`, `pl`, and `pt_BR`, the quote library currently falls back to English until native quote packs are added.
+
+### Architecture notes
+
+A short architecture map lives in `docs/ARCHITECTURE.md`.
+
 Built-in achievement titles/descriptions, trigger labels, and core UI strings are currently shipped for:
 - English (`en`)
 - French (`fr`)

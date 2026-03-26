@@ -1099,3 +1099,16 @@ body[data-oa-theme="neon"] .oa-toast-progress span { background: linear-gradient
   object-fit: contain;
   display: block;
 }
+
+
+
+/* Settings layout helpers */
+.oa-settings .nav-tabs > li > a { cursor: pointer; }
+.oa-settings .oa-settings-header { margin-bottom: 10px; }
+.oa-settings .oa-settings-note,
+.oa-lazy-pane-note { margin-top: 12px; }
+.oa-advanced { display: none; }
+.oa-advanced.oa-open { display: block; }
+.oa-advanced-toggle { cursor: pointer; user-select: none; }
+.oa-advanced-toggle .glyphicon { margin-right: 6px; }
+.oa-lazy-pane-loading { padding: 14px 16px; }
