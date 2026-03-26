@@ -311,7 +311,7 @@ class AchievementAdminController extends Controller
      *
      * @param int|null $ignore_achievement_id When updating, ignore the current record.
      */
-    protected function nextAvailableQuoteId(int $ignore_achievement_id = null, string $rarity = 'common', string $tone = '', $mailbox_id = null): ?string
+    protected function nextAvailableQuoteId(?int $ignore_achievement_id = null, string $rarity = 'common', string $tone = '', $mailbox_id = null): ?string
     {
         try {
             $query = Achievement::query()->whereNotNull('quote_id');

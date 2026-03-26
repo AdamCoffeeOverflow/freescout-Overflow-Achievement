@@ -250,7 +250,7 @@ class OverflowAchievementController extends Controller
                 if (!isset($unlocked_keys[$def->key])) {
                     continue;
                 }
-                $quotes_by_key[$def->key] = $qs->forAchievement($def);
+                $quotes_by_key[$def->key] = QuoteCatalog::localizeQuote($qs->forAchievement($def));
             }
         } catch (\Throwable $e) {
             $quotes_by_key = [];
