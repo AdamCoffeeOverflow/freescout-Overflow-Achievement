@@ -264,15 +264,9 @@ class QuoteService
             return [];
         }
 
-        // 1) Admin-configured mailbox rules (stored in Option as JSON).
-        $rules_raw = (string)\Option::get('overflowachievement.quotes.mailbox_rules', '');
-        $rules = [];
-        if ($rules_raw !== '') {
-            $decoded = json_decode($rules_raw, true);
-            if (is_array($decoded)) {
-                $rules = $decoded;
-            }
-        }
+        // 1) Admin-configured mailbox rules.
+        // Older saves may have stored this as an array; newer saves store canonical JSON.
+        $rules = $this->decodeMailboxRules(\Option::get('overflowachievement.quotes.mailbox_rules', ''));
 
         $mb_rule = $rules[(string)$mailbox_id] ?? null;
         if (is_array($mb_rule)) {
@@ -329,5 +323,24 @@ class QuoteService
         }, $ids)));
 
         return $ids;
+    }
+
+    protected function decodeMailboxRules($value): array
+    {
+        if (is_object($value)) {
+            $value = json_decode(json_encode($value), true);
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($value) ? $value : [];
     }
 }

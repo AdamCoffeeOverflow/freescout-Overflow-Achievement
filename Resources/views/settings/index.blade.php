@@ -21,23 +21,41 @@
         'philosophical' => __('Philosophical'),
     ];
 
-    $mailbox_quote_rules_json = old(
-        'settings[overflowachievement.quotes.mailbox_rules]',
-        $settings_values['overflowachievement.quotes.mailbox_rules'] ?? ''
-    );
+    $decode_mailbox_quote_rules = function ($value) {
+        if (is_object($value)) {
+            $value = json_decode(json_encode($value), true);
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        $value = trim((string)$value);
+        if ($value === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    };
+
+    $posted_settings = old('settings', null);
+    $mailbox_quote_rules_value = $settings_values['overflowachievement.quotes.mailbox_rules'] ?? '';
+    if (is_array($posted_settings) && array_key_exists('overflowachievement.quotes.mailbox_rules', $posted_settings)) {
+        $mailbox_quote_rules_value = $posted_settings['overflowachievement.quotes.mailbox_rules'];
+    }
+
+    $rules_arr = $decode_mailbox_quote_rules($mailbox_quote_rules_value);
+    $mailbox_quote_rules_json = !empty($rules_arr)
+        ? json_encode($rules_arr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        : '';
 
     if ($is_admin) {
         try {
             $mailboxes = \App\Mailbox::query()->orderBy('name')->get();
         } catch (\Throwable $e) {
             $mailboxes = collect();
-        }
-
-        if (!empty($mailbox_quote_rules_json)) {
-            $decoded = json_decode($mailbox_quote_rules_json, true);
-            if (is_array($decoded)) {
-                $rules_arr = $decoded;
-            }
         }
     }
 

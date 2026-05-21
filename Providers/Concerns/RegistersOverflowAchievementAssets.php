@@ -29,8 +29,9 @@ trait RegistersOverflowAchievementAssets
     {
         $enabled = $this->moduleEnabled();
         $path = '/' . ltrim(request()->path() ?? '', '/');
-        $isSettings = str_contains($path, '/settings/') && (str_contains($path, '/achievement') || (request()->get('section') === 'achievement'));
-        $isModuleArea = str_contains($path, '/overflowachievement');
+        $isSettings = strpos($path, '/settings/') !== false
+            && (strpos($path, '/achievement') !== false || (request()->get('section') === 'achievement'));
+        $isModuleArea = strpos($path, '/overflowachievement') !== false;
 
         return $enabled || $isSettings || $isModuleArea;
     }

@@ -4,7 +4,7 @@ namespace Modules\OverflowAchievement\Providers\Concerns;
 
 trait RegistersOverflowAchievementSettings
 {
-protected function registerSettings(): void
+    protected function registerSettings(): void
     {
         // Add a new section under Manage > Settings.
         \Eventy::addFilter('settings.sections', function ($sections) {
@@ -208,6 +208,28 @@ protected function registerSettings(): void
             ];
         }, 20, 2);
 
+        // Normalize complex settings before FreeScout persists them.
+        // FreeScout stores posted option values as-is, so arrays must be converted to JSON strings.
+        \Eventy::addFilter('settings.before_save', function ($request, $section, $settings) {
+            if ($section !== 'achievement') {
+                return $request;
+            }
+
+            try {
+                $settings_values = (array)($request->settings ?? []);
+                $key = 'overflowachievement.quotes.mailbox_rules';
+
+                if (array_key_exists($key, $settings_values)) {
+                    $settings_values[$key] = $this->normalizeMailboxRulesOptionValue($settings_values[$key]);
+                    $request->merge(['settings' => $settings_values]);
+                }
+            } catch (\Throwable $e) {
+                // Keep settings save resilient; the view/runtime also tolerate legacy values.
+            }
+
+            return $request;
+        }, 20, 3);
+
         // After saving settings, clear module runtime caches.
         // (FreeScout clears some caches globally, but module-level caches/vars may remain.)
         \Eventy::addFilter('settings.after_save', function ($response, $request, $section, $saved_settings) {
@@ -224,5 +246,82 @@ protected function registerSettings(): void
             }
             return $response;
         }, 20, 4);
+    }
+
+    protected function normalizeMailboxRulesOptionValue($value): string
+    {
+        $rules = $this->decodeMailboxRulesOptionValue($value);
+
+        if (empty($rules)) {
+            return '';
+        }
+
+        $encoded = json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return is_string($encoded) ? $encoded : '';
+    }
+
+    protected function decodeMailboxRulesOptionValue($value): array
+    {
+        if (is_object($value)) {
+            $value = json_decode(json_encode($value), true);
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $allowed_tones = ['funny', 'epic', 'philosophical'];
+        $rules = [];
+
+        foreach ($value as $mailbox_id => $rule) {
+            $mailbox_id = trim((string)$mailbox_id);
+            if ($mailbox_id === '' || !ctype_digit($mailbox_id)) {
+                continue;
+            }
+
+            $rule = is_array($rule) ? $rule : [];
+            $tones = [];
+            foreach ((array)($rule['tones'] ?? []) as $tone) {
+                $tone = trim((string)$tone);
+                if ($tone !== '' && in_array($tone, $allowed_tones, true)) {
+                    $tones[$tone] = true;
+                }
+            }
+
+            $ids = [];
+            foreach ((array)($rule['ids'] ?? []) as $id) {
+                $id = trim((string)$id);
+                if ($id !== '') {
+                    $ids[$id] = true;
+                }
+            }
+
+            $limit = isset($rule['limit']) ? (int)$rule['limit'] : 0;
+            $limit = max(0, $limit);
+
+            if (!empty($tones) || !empty($ids) || $limit > 0) {
+                $rules[$mailbox_id] = [
+                    'tones' => array_keys($tones),
+                    'limit' => $limit,
+                ];
+
+                if (!empty($ids)) {
+                    $rules[$mailbox_id]['ids'] = array_keys($ids);
+                }
+            }
+        }
+
+        return $rules;
     }
 }

@@ -200,7 +200,7 @@ class OverflowAchievementController extends Controller
         $recent_unlocks = $recent_unlocks->whereIn('user_id', $allowedIds)->values();
 
         $def_keys = $recent_unlocks->pluck('achievement_key')->filter(function ($k) {
-            return !str_starts_with((string)$k, 'level_up_');
+            return substr((string)$k, 0, 9) !== 'level_up_';
         })->unique()->values()->toArray();
 
         $defs = Achievement::query()->whereIn('key', $def_keys)->get()->keyBy('key');

@@ -1,7 +1,7 @@
 <div role="tabpanel" class="tab-pane" id="oa-tab-quotes">
                 <form class="form-horizontal margin-bottom oa-settings-form oa-quotes-form" method="POST" action="{{ url()->current() }}">
                     {{ csrf_field() }}
-                    @include('overflowachievement::settings.preserve_all')
+                    @include('overflowachievement::settings.preserve_all', ['oa_preserve_exclude' => ['overflowachievement.quotes.mailbox_rules']])
                     <input type="hidden" name="tab" value="quotes" />
                     <input type="hidden" id="oa-mailbox-quotes-json" name="settings[overflowachievement.quotes.mailbox_rules]" value="{{ e($mailbox_quote_rules_json) }}" />
 

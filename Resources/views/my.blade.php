@@ -82,7 +82,7 @@
                     @forelse ($recent as $row)
                         @php
                             $key = (string)$row->achievement_key;
-                            $is_level = str_starts_with($key, 'level_up_');
+                            $is_level = substr($key, 0, 9) === 'level_up_';
                             $def = $is_level ? null : ($defs[$key] ?? null);
                             $title = $is_level ? __('Level Up') : ($def ? $def->display_title : \Modules\OverflowAchievement\Entities\Achievement::translateText('', $key, 'title'));
                             if ($title === '') { $title = $key; }
