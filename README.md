@@ -27,14 +27,14 @@ Toast notification for level reach
 
 <img width="1200" height="684" alt="image" src="https://github.com/user-attachments/assets/9905176d-1ccc-46eb-a6b0-08ff24a8c150" />
 
-<img width="250" height="423" alt="Screenshot 2026-02-22 152050" src="https://github.com/user-attachments/assets/fb062186-3f3b-44ef-b40b-6de695974073" />
+<img width="550" height="423" alt="Screenshot 2026-02-22 152050" src="https://github.com/user-attachments/assets/fb062186-3f3b-44ef-b40b-6de695974073" />
 
-<img width="439" height="657" alt="Screenshot 2026-02-22 151551" src="https://github.com/user-attachments/assets/f6adba7a-a68a-4cbc-84ad-343e984bf02c" />
+<img width="939" height="657" alt="Screenshot 2026-02-22 151551" src="https://github.com/user-attachments/assets/f6adba7a-a68a-4cbc-84ad-343e984bf02c" />
 
 over 3+ different themes to choose from.
 and more...
 
-<img width="761" height="798" alt="Screenshot 2026-02-22 152116" src="https://github.com/user-attachments/assets/228dd822-e93e-49e5-bae6-d1908817a159" />
+<img width="861" height="598" alt="Screenshot 2026-02-22 152116" src="https://github.com/user-attachments/assets/228dd822-e93e-49e5-bae6-d1908817a159" />
 
 
 This package is intended to be the **single distribution** for both:
