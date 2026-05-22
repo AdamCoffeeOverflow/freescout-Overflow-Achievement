@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Modules\OverflowAchievement\Support\QuoteCatalog;
 
 class AddAchievementQuotes extends Migration
 {
@@ -27,7 +28,7 @@ class AddAchievementQuotes extends Migration
 
         // Backfill quote_id for existing achievements (unique until the library is exhausted).
         try {
-            $library = (array)config('overflowachievement.quotes.library', []);
+            $library = (array) QuoteCatalog::get('library', []);
             $ids = [];
             foreach ($library as $q) {
                 if (!empty($q['id'])) {

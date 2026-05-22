@@ -29,7 +29,9 @@ class OverflowAchievementServiceProvider extends ServiceProvider
         }
 
         $this->mergeModuleConfig(__DIR__.'/../Config/config.php', 'overflowachievement', true);
-        $this->mergeModuleConfig(__DIR__.'/../Config/quotes.php', 'overflowachievement.quotes', true);
+        // Quotes are loaded on demand by QuoteCatalog instead of being merged into
+        // Laravel config. This keeps bootstrap/cache/config.php small and prevents
+        // quote text punctuation from ever breaking a cached config rebuild.
         $this->mergeModuleConfig(__DIR__.'/../Config/levels.php', 'overflowachievement.levels', false);
 
         $this->app->singleton('overflowachievement.levels', function () {

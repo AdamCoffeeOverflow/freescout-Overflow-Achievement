@@ -882,23 +882,34 @@ body[data-oa-theme="neon"] .oa-toast-progress span { background: linear-gradient
 }
 
 /* Navbar: keep it tiny and layout-safe */
+.navbar .nav-user .oa-user-meta,
 .oa-user-meta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
   margin-left: 6px;
   vertical-align: middle;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 11px;
+  line-height: 18px;
   opacity: .95;
+  transform: translateY(-1px);
+  white-space: nowrap;
 }
 
-.oa-user-level{
-  display:inline-block;
-  padding: 1px 6px;
+.navbar .nav-user .oa-user-level,
+.oa-user-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgba(255,255,255,.18);
   border: 1px solid rgba(255,255,255,.22);
   color: rgba(255,255,255,.92);
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 18px;
 }
 
 .oa-stat-grid {

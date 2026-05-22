@@ -4,6 +4,40 @@ namespace Modules\OverflowAchievement\Support;
 
 class QuoteCatalog
 {
+
+    public static function defaults(): array
+    {
+        static $defaults = null;
+
+        if ($defaults === null) {
+            $path = __DIR__.'/../Config/quotes.php';
+            $loaded = file_exists($path) ? require $path : [];
+            $defaults = is_array($loaded) ? $loaded : [];
+        }
+
+        return $defaults;
+    }
+
+    public static function get(string $key = '', $default = null)
+    {
+        $quotes = static::defaults();
+
+        if ($key === '') {
+            return $quotes;
+        }
+
+        $segments = explode('.', $key);
+        $value = $quotes;
+        foreach ($segments as $segment) {
+            if (!is_array($value) || !array_key_exists($segment, $value)) {
+                return $default;
+            }
+            $value = $value[$segment];
+        }
+
+        return $value;
+    }
+
     public static function translationKey(string $quoteId, string $field): string
     {
         return 'overflowachievement::quotes.' . trim($quoteId) . '.' . trim($field);
@@ -59,7 +93,7 @@ class QuoteCatalog
 
     public static function library(): array
     {
-        return array_values((array) config('overflowachievement.quotes.library', []));
+        return array_values((array) static::get('library', []));
     }
 
     public static function matchIdByText(string $text): ?string

@@ -46,7 +46,7 @@ class QuoteService
      */
     public function getById(string $id): array
     {
-        $library = (array)config('overflowachievement.quotes.library', []);
+        $library = (array)QuoteCatalog::get('library', []);
         foreach ($library as $q) {
             if (!empty($q['id']) && $q['id'] === $id) {
                 return $q;
@@ -77,12 +77,12 @@ class QuoteService
         // ]
         $mailbox_tones = [];
         if (!empty($mailbox_id)) {
-            $mb = (array)config('overflowachievement.quotes.mailbox_preferences.'.(string)$mailbox_id, []);
+            $mb = (array)QuoteCatalog::get('mailbox_preferences.'.(string)$mailbox_id, []);
             $mailbox_tones = array_values(array_filter((array)($mb['tones'] ?? [])));
         }
 
-        $buckets = (array)config('overflowachievement.quotes.buckets', []);
-        $prefs = (array)config('overflowachievement.quotes.rarity_preferences', []);
+        $buckets = (array)QuoteCatalog::get('buckets', []);
+        $prefs = (array)QuoteCatalog::get('rarity_preferences', []);
 
         // Optional mailbox-specific quote library subset.
         // If configured, we restrict auto-selection to that subset first.
@@ -115,7 +115,7 @@ class QuoteService
         $avoidMap = array_fill_keys(array_filter($avoid_ids), true);
 
         // Build lookup from ID => quote for quick checks.
-        $library = (array)config('overflowachievement.quotes.library', []);
+        $library = (array)QuoteCatalog::get('library', []);
         $libIds = [];
         foreach ($library as $q) {
             if (!empty($q['id'])) {
@@ -167,7 +167,7 @@ class QuoteService
     {
         return array_map(function ($quote) {
             return QuoteCatalog::localizeQuote((array)$quote);
-        }, array_values((array)config('overflowachievement.quotes.library', [])));
+        }, array_values((array)QuoteCatalog::get('library', [])));
     }
 
     /**
@@ -175,7 +175,7 @@ class QuoteService
      */
     public function deterministicByKey(string $key, $mailbox_id = null): array
     {
-        $library = array_values((array)config('overflowachievement.quotes.library', []));
+        $library = array_values((array)QuoteCatalog::get('library', []));
         if (empty($library)) {
             // Fallback to themed pools if library not present.
             return $this->pick('generic', []);
@@ -217,7 +217,7 @@ class QuoteService
      */
     public function pick(string $theme, array $avoid_ids = []): array
     {
-        $quotes = config('overflowachievement.quotes');
+        $quotes = QuoteCatalog::get();
 
         $pool = $quotes[$theme] ?? $quotes['generic'] ?? [];
         if (empty($pool)) {
@@ -247,7 +247,7 @@ class QuoteService
 
     protected function trimToMax(string $text): string
     {
-        $max_len = (int)config('overflowachievement.quotes.max_length', 140);
+        $max_len = (int)QuoteCatalog::get('max_length', 140);
         $text = (string)$text;
         if ($max_len > 0 && $text !== '' && mb_strlen($text) > $max_len) {
             return rtrim(mb_substr($text, 0, $max_len - 1)).'…';
@@ -283,7 +283,7 @@ class QuoteService
             $limit = (int)($mb_rule['limit'] ?? 0);
 
             if (!empty($tones)) {
-                $buckets = (array)config('overflowachievement.quotes.buckets', []);
+                $buckets = (array)QuoteCatalog::get('buckets', []);
                 $ids = [];
                 foreach ($tones as $t) {
                     foreach ((array)($buckets[$t] ?? []) as $id) {
@@ -317,7 +317,7 @@ class QuoteService
         }
 
         // 2) Config-defined mailbox libraries (static subsets).
-        $ids = (array)config('overflowachievement.quotes.mailbox_libraries.'.(string)$mailbox_id, []);
+        $ids = (array)QuoteCatalog::get('mailbox_libraries.'.(string)$mailbox_id, []);
         $ids = array_values(array_filter(array_map(function ($v) {
             return trim((string)$v);
         }, $ids)));

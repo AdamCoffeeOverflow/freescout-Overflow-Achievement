@@ -4,13 +4,14 @@ namespace Modules\OverflowAchievement\Services;
 
 use Modules\OverflowAchievement\Entities\Achievement;
 use Modules\OverflowAchievement\Entities\UserStat;
+use Modules\OverflowAchievement\Support\QuoteCatalog;
 
 class AchievementAdminService
 {
     public function manageTabViewData(): array
     {
-        $quoteLibrary = (array) config('overflowachievement.quotes.library', []);
-        $quoteBuckets = (array) config('overflowachievement.quotes.buckets', []);
+        $quoteLibrary = (array) QuoteCatalog::get('library', []);
+        $quoteBuckets = (array) QuoteCatalog::get('buckets', []);
 
         $mailboxes = [];
         try {
