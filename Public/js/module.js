@@ -32,6 +32,16 @@
     }
   }
 
+  function isGuestAuthPage() {
+    try {
+      var path = window.location && window.location.pathname ? String(window.location.pathname) : '';
+      if (/\/login\/?$/i.test(path)) return true;
+      if (/\/password\/(reset|email)(\/|$)/i.test(path)) return true;
+      if (document.querySelector('form[action*="/login"]')) return true;
+    } catch (e) {}
+    return false;
+  }
+
   // Sound: browsers usually require user interaction before audio can play.
   var _oaUserInteracted = false;
   function initUserInteractionFlag() {
@@ -1972,6 +1982,14 @@ function addToBatch(items, stat, prevStat) {
 
   function init() {
     initUserInteractionFlag();
+
+    // Guest/login pages must never call authenticated module endpoints.
+    // This is mainly a defense against stale cached assets after upgrades;
+    // server-side asset registration also skips guests.
+    if (isGuestAuthPage()) {
+      return;
+    }
+
     if (typeof window.OVERFLOWACHIEVEMENT_EFFECT === 'undefined') { window.OVERFLOWACHIEVEMENT_EFFECT = 'confetti'; }
 
     // Apply any cached runtime bootstrap first so pending UI feels consistent
