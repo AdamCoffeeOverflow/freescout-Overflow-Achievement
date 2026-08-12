@@ -10,15 +10,15 @@ use Modules\OverflowAchievement\Entities\Achievement;
 use Modules\OverflowAchievement\Entities\Event;
 use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
+use Modules\OverflowAchievement\Support\TriggerCatalog;
 
 class RewardEngine
 {
     /** @var array<string, mixed> */
-    protected static array $optCache = [];
+    protected static $optCache = [];
 
     /**
-     * Keep this class compatible with PHP 7.4 (FreeScout commonly supports 7.4+).
-     * Avoid PHP 8 constructor property promotion.
+     * Keep this class compatible with the project PHP 7.1 syntax floor.
      */
     /** @var LevelService */
     protected $levelService;
@@ -982,38 +982,39 @@ class RewardEngine
 
     protected function eventExists(int $user_id, string $event_type, int $conversation_id): bool
     {
-        static $cache = [];
-        $k = $user_id.'|'.$event_type.'|'.$conversation_id;
-        if (isset($cache[$k])) {
-            return (bool)$cache[$k];
-        }
-        $exists = Event::query()
+        return Event::query()
             ->where('user_id', $user_id)
             ->where('event_type', $event_type)
             ->where('conversation_id', $conversation_id)
             ->exists();
-        $cache[$k] = $exists ? 1 : 0;
-        return (bool)$exists;
     }
 
     protected function eventsToday(int $user_id, string $event_type, int $conversation_id): int
     {
-        static $cache = [];
-        $today = Carbon::now()->toDateString();
-        $k = $today.'|'.$user_id.'|'.$event_type.'|'.$conversation_id;
-        if (isset($cache[$k])) {
-            return (int)$cache[$k];
-        }
-
-        $today_start = Carbon::now()->startOfDay();
-        $count = (int)Event::query()
+        return (int)Event::query()
             ->where('user_id', $user_id)
             ->where('event_type', $event_type)
             ->where('conversation_id', $conversation_id)
-            ->where('created_at', '>=', $today_start)
+            ->where('created_at', '>=', Carbon::now()->startOfDay())
             ->count();
-        $cache[$k] = $count;
-        return $count;
+    }
+
+    protected function dateValueToDateString($value): ?string
+    {
+        if ($value instanceof DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $value, $matches)) {
+            return $matches[0];
+        }
+
+        return null;
     }
 
 
@@ -1099,11 +1100,17 @@ class RewardEngine
 
         $stat_out = null;
 
-        DB::transaction(function () use ($user_id, $event_type, $xp, $conversation_id, $meta, $subject, $cap, $today, &$effective_xp, &$stat_out) {
-            // Lock row to avoid concurrent lost-updates (common on busy helpdesks).
+        DB::transaction(function () use ($user_id, $event_type, $xp, $conversation_id, $meta, $subject, $dedupe, $cap, $today, &$effective_xp, &$stat_out) {
+            // Serialize all reward mutations for this real FreeScout user.
+            // Locking the core user row also makes first-time stat creation race-safe.
+            $user = \App\User::query()->select('id')->where('id', $user_id)->lockForUpdate()->first();
+            if (!$user) {
+                return;
+            }
+
             $stat = UserStat::query()->where('user_id', $user_id)->lockForUpdate()->first();
             if (!$stat) {
-                UserStat::query()->create([
+                $stat = UserStat::query()->create([
                     'user_id' => $user_id,
                     'xp_total' => 0,
                     'daily_xp' => 0,
@@ -1123,10 +1130,7 @@ class RewardEngine
                     'streak_current' => 0,
                     'streak_best' => 0,
                 ]);
-                $stat = UserStat::query()->where('user_id', $user_id)->lockForUpdate()->first();
             }
-
-
 
             // Concurrency-safe dedupe: re-check inside the user row lock.
             // This prevents double-counting when two requests race (both pass the pre-check).
@@ -1208,7 +1212,7 @@ class RewardEngine
                 }
             }
             // Reset daily XP counter if it's a new day.
-            $dailyDate = $stat->daily_xp_date ? (string)$stat->daily_xp_date : null;
+            $dailyDate = $this->dateValueToDateString($stat->daily_xp_date);
             if ($dailyDate !== $today) {
                 $stat->daily_xp = 0;
                 $stat->daily_xp_date = $today;
@@ -1329,7 +1333,7 @@ class RewardEngine
 
             // Streak (any XP-awarding action counts as activity)
             $yesterday = Carbon::now()->subDay()->toDateString();
-            $last_date = $stat->last_activity_date ? (string)$stat->last_activity_date : null;
+            $last_date = $this->dateValueToDateString($stat->last_activity_date);
 
             if ($last_date === $today) {
                 // already counted today
@@ -1442,32 +1446,100 @@ class RewardEngine
             return;
         }
 
-        // Quotes are unique per achievement. If the achievement does not have a quote assigned yet,
-        // fall back to a deterministic pick from the library (stable across installs).
-        $quote = $this->quoteService->forAchievement($achievement);
+        $achievement_key = (string)$achievement->key;
+        $bonus = 0;
 
         try {
-            UnlockedAchievement::create([
-                'user_id' => $user_id,
-                'achievement_key' => $achievement->key,
-                'unlocked_at' => Carbon::now(),
-                'seen_at' => null,
-                'quote_id' => $quote['id'],
-                'quote_text' => $quote['text'],
-                'quote_author' => $quote['author'],
-            ]);
+            $inserted = DB::transaction(function () use ($user_id, $achievement, $achievement_key, &$bonus) {
+                // Use the same first lock as normal rewards/resets. Re-reading the current
+                // stat under this lock prevents a reset racing between award and unlock
+                // from resurrecting stale trophy progress afterward.
+                $user = \App\User::query()->select('id')->where('id', $user_id)->lockForUpdate()->first();
+                if (!$user) {
+                    return false;
+                }
+
+                // Serialize definition deletion against new unlocks. The admin delete path
+                // takes the same achievement-row lock before checking unlock history.
+                $lockedAchievement = Achievement::query()
+                    ->where('id', (int)$achievement->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$lockedAchievement || !$lockedAchievement->is_active) {
+                    return false;
+                }
+
+                $stat = UserStat::query()->where('user_id', $user_id)->lockForUpdate()->first();
+                if (!$stat) {
+                    return false;
+                }
+
+                $currentValue = $this->currentTriggerValue($stat, (string)$lockedAchievement->trigger);
+                if ($currentValue === null || $currentValue < (int)$lockedAchievement->threshold) {
+                    return false;
+                }
+
+                // Quotes are unique per achievement. If the achievement does not have a quote assigned yet,
+                // fall back to a deterministic pick from the library (stable across installs).
+                $quote = $this->quoteService->forAchievement($lockedAchievement);
+
+                UnlockedAchievement::create([
+                    'user_id' => $user_id,
+                    'achievement_key' => $achievement_key,
+                    'unlocked_at' => Carbon::now(),
+                    'seen_at' => null,
+                    'quote_id' => $quote['id'],
+                    'quote_text' => $quote['text'],
+                    'quote_author' => $quote['author'],
+                ]);
+
+                $bonus = max(0, (int)($lockedAchievement->xp_reward ?? 0));
+
+                return true;
+            });
         } catch (\Throwable $e) {
-            // Race/duplicate: ignore.
+            // A concurrent insert of the same unique (user, achievement) is harmless.
+            if (UnlockedAchievement::query()
+                ->where('user_id', $user_id)
+                ->where('achievement_key', $achievement_key)
+                ->exists()
+            ) {
+                return;
+            }
+
+            // Preserve visibility for real storage/schema failures without breaking
+            // the FreeScout mutation that caused the reward evaluation.
+            \Log::error('OverflowAchievement: achievement unlock persistence failed', [
+                'exception' => get_class($e),
+                'user_id' => $user_id,
+                'achievement_key' => $achievement_key,
+            ]);
             return;
         }
 
-        $bonus = (int)($achievement->xp_reward ?? 0);
+        if (!$inserted) {
+            return;
+        }
+
         if ($bonus > 0) {
             $this->awardXpAndUpdateStats($user_id, 'achievement_unlock', $bonus, null, [
-                'achievement_key' => $achievement->key,
+                'achievement_key' => $achievement_key,
                 'bonus' => true,
             ]);
         }
+    }
+
+    protected function currentTriggerValue(UserStat $stat, string $trigger): ?int
+    {
+        $fields = TriggerCatalog::statFields();
+
+        if (!isset($fields[$trigger])) {
+            return null;
+        }
+
+        $field = $fields[$trigger];
+        return (int)($stat->{$field} ?? 0);
     }
 
     protected function inferThemeFromTrigger(string $trigger): string

@@ -49,43 +49,32 @@
 	                        $unlocked_at = ($is_unlocked && !empty($u) && !empty($u->unlocked_at) && method_exists($u->unlocked_at, 'format'))
 	                            ? $u->unlocked_at->format('Y-m-d H:i')
 	                            : '';
+                        $resolved_icon = \Modules\OverflowAchievement\Entities\Achievement::resolveIcon($def->icon_type ?? 'img', $def->icon_value ?? 'icon_001.png', $def->key);
+                        $resolved_icon_url = \Modules\OverflowAchievement\Entities\Achievement::iconUrl($resolved_icon['value']);
                     @endphp
                     <div class="oa-card {{ $cardClass }} oa-r-{{ $rar }}"
                         role="button" tabindex="0"
                         data-oa-state="{{ $is_unlocked ? 'unlocked' : 'locked' }}"
-                        data-oa-key="{{ e($def->key) }}"
-                        data-oa-title="{{ e($def->display_title) }}"
-                        data-oa-desc="{{ e($def->display_description) }}"
-                        data-oa-rarity="{{ e($rar) }}"
-                        data-oa-trigger="{{ e($def->trigger) }}"
-                        data-oa-trigger-label="{{ e($trigger_labels[$def->trigger] ?? $def->trigger) }}"
-                        data-oa-trigger-hint="{{ e($trigger_hints[$def->trigger] ?? '') }}"
+                        data-oa-key="{{ $def->key }}"
+                        data-oa-title="{{ $def->display_title }}"
+                        data-oa-desc="{{ $def->display_description }}"
+                        data-oa-rarity="{{ $rar }}"
+                        data-oa-trigger="{{ $def->trigger }}"
+                        data-oa-trigger-label="{{ $trigger_labels[$def->trigger] ?? $def->trigger }}"
+                        data-oa-trigger-hint="{{ $trigger_hints[$def->trigger] ?? '' }}"
                         data-oa-threshold="{{ (int)($def->threshold ?? 0) }}"
                         data-oa-current="{{ $current }}"
                         data-oa-progress="{{ $pct }}"
                         data-oa-xp="{{ (int)($def->xp_reward ?? 0) }}"
-                        data-oa-icon-type="{{ e($def->icon_type ?? 'fa') }}"
-                        data-oa-icon-value="{{ e($def->icon_value ?? 'fa-trophy') }}"
-                        data-oa-unlocked-at="{{ e($unlocked_at) }}"
-                        data-oa-quote="{{ e($quote_text) }}"
-                        data-oa-quote-author="{{ e($quote_author) }}"
+                        data-oa-icon-type="{{ $resolved_icon['type'] }}"
+                        data-oa-icon-value="{{ $resolved_icon['value'] }}"
+                        data-oa-unlocked-at="{{ $unlocked_at }}"
+                        data-oa-quote="{{ $quote_text }}"
+                        data-oa-quote-author="{{ $quote_author }}"
                     >
                         <div class="oa-card-top">
                             <div class="oa-card-icon">
-                                @if (($def->icon_type ?? 'fa') === 'img' && !empty($def->icon_value))
-                                    <img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="{{ (\Illuminate\Support\Str::startsWith($def->icon_value, ['http://','https://','/']))
-                                        ? $def->icon_value
-                                        : (\Helper::getSubdirectory().'/modules/overflowachievement/icons/pack/'.$def->icon_value) }}" />
-                                @else
-                                    @php
-                                        $fa_raw = $def->icon_value ?: 'fa-trophy';
-                                        $fa = $fa_raw;
-                                        if (preg_match('/\bfa-[a-z0-9-]+\b/i', (string)$fa_raw, $m)) {
-                                            $fa = $m[0];
-                                        }
-                                    @endphp
-                                    <i class="fa {{ $fa }}"></i>
-                                @endif
+                                <img class="oa-icon-img" alt="" src="{{ $resolved_icon_url }}" />
                             </div>
                             <div class="oa-card-meta">
                                 <div class="oa-card-title">{{ $def->display_title }}</div>
@@ -102,7 +91,7 @@
 
                         @if ($is_unlocked)
                             <div class="oa-card-unlock">
-                                <span class="oa-check"><i class="fa fa-check"></i></span>
+                                <span class="oa-check"><i class="glyphicon glyphicon-ok"></i></span>
                                 <span>{{ __('Unlocked') }}</span>
                                 <span class="oa-date">{{ (!empty($u) && !empty($u->unlocked_at) && method_exists($u->unlocked_at, 'format')) ? $u->unlocked_at->format('Y-m-d') : '' }}</span>
                             </div>
@@ -117,7 +106,7 @@
                             @endif
                         @else
                             <div class="oa-card-overlay">
-                                <i class="fa fa-lock"></i>
+                                <i class="glyphicon glyphicon-lock"></i>
                             </div>
                         @endif
                     </div>

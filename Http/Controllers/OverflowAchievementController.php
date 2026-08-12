@@ -139,7 +139,11 @@ class OverflowAchievementController extends Controller
             return view('overflowachievement::install_needed');
         }
 
+        $viewer = $request->user();
+        $visibleUserIds = $this->leaderboardVisibleUserIds($viewer);
+
         $top = UserStat::query()
+            ->whereIn('user_id', $visibleUserIds)
             ->orderByDesc('xp_total')
             ->orderByDesc('level')
             ->limit(50)
@@ -157,6 +161,7 @@ class OverflowAchievementController extends Controller
         $recent_unlocks_limit = max(1, min(50, $recent_unlocks_limit));
 
         $recent_unlocks = UnlockedAchievement::query()
+            ->whereIn('user_id', $visibleUserIds)
             ->orderByDesc('unlocked_at')
             ->limit($recent_unlocks_limit)
             ->get();
@@ -211,6 +216,39 @@ class OverflowAchievementController extends Controller
             'recent_unlocks' => $recent_unlocks,
             'defs' => $defs,
         ]);
+    }
+
+    protected function leaderboardVisibleUserIds($viewer): array
+    {
+        if (!$viewer || empty($viewer->id)) {
+            return [0];
+        }
+
+        if ($viewer->isAdmin()) {
+            $query = \App\User::query()->where('status', '!=', \App\User::STATUS_DELETED);
+            if (defined('\App\User::TYPE_ROBOT')) {
+                $query->where('type', '!=', \App\User::TYPE_ROBOT);
+            }
+
+            return $query->pluck('id')->map(function ($id) {
+                return (int)$id;
+            })->all();
+        }
+
+        $mailboxIds = $viewer->mailboxesIdsCanView();
+        $visibleUserIds = [(int)$viewer->id];
+
+        if (!empty($mailboxIds)) {
+            $visibleUserIds = array_merge($visibleUserIds, \DB::table('mailbox_user')
+                ->whereIn('mailbox_id', $mailboxIds)
+                ->pluck('user_id')
+                ->map(function ($id) {
+                    return (int)$id;
+                })
+                ->all());
+        }
+
+        return array_values(array_unique(array_filter($visibleUserIds)));
     }
 
     public function unseen(Request $request)
@@ -345,8 +383,13 @@ class OverflowAchievementController extends Controller
                 $title = $key;
             }
             $rarity = isset($row->def_rarity) ? (string)$row->def_rarity : 'common';
-            $icon_type = isset($row->def_icon_type) ? (string)$row->def_icon_type : 'fa';
-            $icon_value = isset($row->def_icon_value) ? (string)$row->def_icon_value : 'fa-trophy';
+            $resolvedIcon = Achievement::resolveIcon(
+                isset($row->def_icon_type) ? (string)$row->def_icon_type : 'img',
+                isset($row->def_icon_value) ? (string)$row->def_icon_value : 'icon_001.png',
+                $key
+            );
+            $icon_type = $resolvedIcon['type'];
+            $icon_value = $resolvedIcon['value'];
 
             $xp_reward = (int)($rewardByRowId[$row->id] ?? 0);
             // Apply reward before computing snapshot, so the toast shows the updated total.

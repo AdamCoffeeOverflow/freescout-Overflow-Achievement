@@ -13,6 +13,7 @@ use Modules\OverflowAchievement\Entities\UnlockedAchievement;
 use Modules\OverflowAchievement\Entities\UserStat;
 use Modules\OverflowAchievement\Services\AchievementAdminService;
 use Modules\OverflowAchievement\Services\QuoteService;
+use Modules\OverflowAchievement\Support\TriggerCatalog;
 
 class AchievementAdminController extends Controller
 {
@@ -76,10 +77,119 @@ class AchievementAdminController extends Controller
         }
 
         if (ctype_digit($target)) {
-            return [(int)$target];
+            $userId = (int)$target;
+            $user = \App\User::query()->select('id')->where('id', $userId)->first();
+            return $user ? [(int)$user->id] : [];
         }
 
         return [(int)$request->user()->id];
+    }
+
+    protected function validateAchievementInput(Request $request): array
+    {
+        $input = $request->only(['achievement']);
+        $data = !empty($input['achievement']) && is_array($input['achievement'])
+            ? $input['achievement']
+            : [];
+
+        $validator = \Validator::make($data, [
+            'key' => 'nullable|string|max:64',
+            'title' => 'required|string|max:120',
+            'description' => 'nullable|string|max:255',
+            'trigger' => 'required|string|max:64',
+            'threshold' => 'required|integer|min:1|max:2147483647',
+            'xp_reward' => 'nullable|integer|min:0|max:2147483647',
+            'rarity' => 'required|in:common,rare,epic,legendary',
+            'icon_type' => 'nullable|in:fa,img',
+            'icon_value' => 'nullable|string|max:255',
+            'mailbox_id' => 'nullable|integer|min:0',
+            'quote_id' => 'nullable|string|max:16',
+            'quote_text' => 'nullable|string|max:255',
+            'quote_author' => 'nullable|string|max:120',
+            'quote_tone' => 'nullable|in:funny,epic,philosophical',
+            'is_active' => 'nullable|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            return [null, $validator->errors()->first()];
+        }
+
+        if ($request->hasFile('icon_file')) {
+            $fileValidator = \Validator::make(
+                ['icon_file' => $request->file('icon_file')],
+                ['icon_file' => 'file|max:512|mimes:png,jpg,jpeg,gif,webp']
+            );
+            if ($fileValidator->fails()) {
+                return [null, $fileValidator->errors()->first()];
+            }
+        }
+
+        $trigger = TriggerCatalog::normalizeTrigger((string)$data['trigger']);
+        if (!array_key_exists($trigger, TriggerCatalog::definitions())) {
+            return [null, __('Unknown achievement trigger.')];
+        }
+        $data['trigger'] = $trigger;
+
+        $mailboxId = isset($data['mailbox_id']) ? (int)$data['mailbox_id'] : 0;
+        if ($mailboxId > 0 && !\App\Mailbox::query()->where('id', $mailboxId)->exists()) {
+            return [null, __('Mailbox not found.')];
+        }
+
+        list($iconData, $iconError) = $this->normalizeAchievementIconInput($request, $data);
+        if ($iconError !== null) {
+            return [null, $iconError];
+        }
+        $data = $iconData;
+
+        return [$data, null];
+    }
+
+    protected function normalizeAchievementIconInput(Request $request, array $data): array
+    {
+        if ($request->hasFile('icon_file')) {
+            $data['icon_type'] = 'img';
+            return [$data, null];
+        }
+
+        $type = (string)($data['icon_type'] ?? 'img');
+        $value = trim((string)($data['icon_value'] ?? ''));
+
+        // Legacy Font Awesome values remain editable. They are rendered through
+        // the deterministic bundled-image fallback and never emitted as CSS classes.
+        if ($type === 'fa') {
+            $data['icon_value'] = $value !== '' ? $value : 'fa-trophy';
+            return [$data, null];
+        }
+
+        if ($value === '') {
+            $value = 'icon_001.png';
+        }
+
+        // Normalize legacy bundled-icon URLs to the release-stable filename.
+        if (preg_match('#(?:^|/)modules/overflowachievement/icons/pack/(icon_[0-9]{3}\.png)$#i', $value, $matches)) {
+            $value = $matches[1];
+        }
+
+        if (preg_match('/^icon_[0-9]{3}\.png$/', $value)) {
+            $packFile = __DIR__.'/../../Public/icons/pack/'.$value;
+            if (!is_file($packFile)) {
+                return [null, __('Bundled achievement icon not found.')];
+            }
+
+            $data['icon_type'] = 'img';
+            $data['icon_value'] = $value;
+            return [$data, null];
+        }
+
+        // Existing local uploads may use the new persistent storage path or the
+        // legacy module-owned custom directory. Remote/arbitrary paths are rejected.
+        if (Achievement::isLocalIconValue($value)) {
+            $data['icon_type'] = 'img';
+            $data['icon_value'] = $value;
+            return [$data, null];
+        }
+
+        return [null, __('Use a bundled achievement icon or upload a local image.')];
     }
 
     protected function manageTabViewData(): array
@@ -107,7 +217,10 @@ class AchievementAdminController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $data = $request->input('achievement', []);
+        list($data, $validationError) = $this->validateAchievementInput($request);
+        if ($validationError !== null) {
+            return redirect()->back()->withInput()->with('error', $validationError);
+        }
 
         $key = (string)($data['key'] ?? '');
         $key = strtolower(trim($key));
@@ -117,6 +230,7 @@ class AchievementAdminController extends Controller
             // Generate from title
             $key = Str::slug((string)($data['title'] ?? 'achievement'), '_');
         }
+        $key = substr($key, 0, 64);
 
         $title = trim((string)($data['title'] ?? ''));
         if (!$title) {
@@ -155,8 +269,8 @@ class AchievementAdminController extends Controller
                 'threshold' => $threshold,
                 'xp_reward' => max(0, (int)($data['xp_reward'] ?? 0)),
                 'rarity' => $rarity,
-                'icon_type' => in_array(($data['icon_type'] ?? 'fa'), ['fa','img']) ? $data['icon_type'] : 'fa',
-                'icon_value' => trim((string)($data['icon_value'] ?? 'fa-trophy')),
+                'icon_type' => in_array(($data['icon_type'] ?? 'img'), ['fa','img'], true) ? $data['icon_type'] : 'img',
+                'icon_value' => trim((string)($data['icon_value'] ?? 'icon_001.png')),
                 'is_active' => !empty($data['is_active']),
                 'created_by' => (int)$request->user()->id,
                 'mailbox_id' => $mailbox_id,
@@ -166,13 +280,19 @@ class AchievementAdminController extends Controller
                 'quote_tone' => $quote_tone ?: null,
             ]);
         } catch (\Throwable $e) {
-            // Usually a duplicate key (unique constraint). Provide a human message.
+            \Helper::logException($e);
             return redirect()->back()->with('error', __('Could not create achievement. The key may already exist.'));
         }
 
-        // Icon upload (optional)
+        // Icon upload is a post-create effect. Report its failure without relabelling
+        // the already committed achievement row as failed.
         if ($request->hasFile('icon_file') && $request->file('icon_file')->isValid()) {
-            $this->handleIconUpload($request, $achievement);
+            $iconError = $this->handleIconUpload($request, $achievement);
+            if ($iconError !== null) {
+                return redirect()->back()
+                    ->with('success', __('Achievement created.'))
+                    ->with('error', $iconError);
+            }
         }
 
         return redirect()->back()->with('success', __('Achievement created.'));
@@ -183,7 +303,10 @@ class AchievementAdminController extends Controller
         $this->ensureAdmin($request);
 
         $achievement = Achievement::query()->findOrFail($id);
-        $data = $request->input('achievement', []);
+        list($data, $validationError) = $this->validateAchievementInput($request);
+        if ($validationError !== null) {
+            return redirect()->back()->withInput()->with('error', $validationError);
+        }
 
         $achievement->title = trim((string)($data['title'] ?? $achievement->title));
         $achievement->description = trim((string)($data['description'] ?? $achievement->description));
@@ -225,7 +348,12 @@ class AchievementAdminController extends Controller
         $achievement->save();
 
         if ($request->hasFile('icon_file') && $request->file('icon_file')->isValid()) {
-            $this->handleIconUpload($request, $achievement);
+            $iconError = $this->handleIconUpload($request, $achievement);
+            if ($iconError !== null) {
+                return redirect()->back()
+                    ->with('success', __('Achievement updated.'))
+                    ->with('error', $iconError);
+            }
         }
 
         return redirect()->back()->with('success', __('Achievement updated.'));
@@ -257,8 +385,26 @@ class AchievementAdminController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $achievement = Achievement::query()->findOrFail($id);
-        $achievement->delete();
+        $deleted = DB::transaction(function () use ($id) {
+            $achievement = Achievement::query()->where('id', (int)$id)->lockForUpdate()->first();
+            if (!$achievement) {
+                abort(404);
+            }
+
+            if (Schema::hasTable('overflowachievement_unlocked')
+                && UnlockedAchievement::query()->where('achievement_key', $achievement->key)->exists()
+            ) {
+                return false;
+            }
+
+            $achievement->delete();
+
+            return true;
+        });
+
+        if (!$deleted) {
+            return redirect()->back()->with('error', __('This achievement has unlock history. Deactivate it instead of deleting it.'));
+        }
 
         return redirect()->back()->with('success', __('Achievement deleted.'));
     }
@@ -355,10 +501,26 @@ class AchievementAdminController extends Controller
 
         $userIds = $this->resolveTargetUserIds($request, 'reset', true);
         if (empty($userIds)) {
-            return redirect()->back()->with('success', __('Nothing to reset.'));
+            return redirect()->back()->with('error', __('Target user not found.'));
         }
 
-        DB::transaction(function () use ($userIds, $target) {
+        $reset = DB::transaction(function () use ($userIds, $target) {
+            // Same lock order as RewardEngine: real core user first, then module rows.
+            $lockedUserIds = \App\User::query()
+                ->select('id')
+                ->whereIn('id', $userIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->pluck('id')
+                ->map(function ($id) {
+                    return (int)$id;
+                })
+                ->all();
+
+            if ($target !== 'all' && (count($userIds) !== 1 || !in_array((int)$userIds[0], $lockedUserIds, true))) {
+                return false;
+            }
+
             if (Schema::hasTable('overflowachievement_unlocked')) {
                 UnlockedAchievement::query()->whereIn('user_id', $userIds)->delete();
             }
@@ -369,22 +531,26 @@ class AchievementAdminController extends Controller
 
             UserStat::query()->whereIn('user_id', $userIds)->delete();
 
-            if ($target !== 'all' && count($userIds) === 1) {
-                UserStat::query()->updateOrCreate(
-                    ['user_id' => (int)$userIds[0]],
-                    [
-                        'xp_total' => 0,
-                        'daily_xp' => 0,
-                        'daily_xp_date' => null,
-                        'level' => 1,
-                        'streak_current' => 0,
-                        'streak_best' => 0,
-                        'last_activity_at' => null,
-                        'last_activity_date' => null,
-                    ]
-                );
+            if ($target !== 'all') {
+                UserStat::query()->create([
+                    'user_id' => (int)$userIds[0],
+                    'xp_total' => 0,
+                    'daily_xp' => 0,
+                    'daily_xp_date' => null,
+                    'level' => 1,
+                    'streak_current' => 0,
+                    'streak_best' => 0,
+                    'last_activity_at' => null,
+                    'last_activity_date' => null,
+                ]);
             }
+
+            return true;
         });
+
+        if (!$reset) {
+            return redirect()->back()->with('error', __('Target user not found.'));
+        }
 
         return redirect()->back()->with('success', __('Achievement progress reset.'));
     }
@@ -401,27 +567,51 @@ class AchievementAdminController extends Controller
         }
 
         $target = (string)($request->input('test.user_id_custom') ?: ($request->input('test.user_id') ?? 'me'));
-        $userId = $target === 'me' ? (int)$request->user()->id : (int)$target;
-
-        // Pick an existing achievement if available.
-        $def = null;
-        if (Schema::hasTable('overflowachievement_achievements')) {
-            $def = Achievement::query()->where('is_active', true)->inRandomOrder()->first();
+        $userId = $target === 'me' ? (int)$request->user()->id : (ctype_digit($target) ? (int)$target : 0);
+        $targetUser = $userId ? \App\User::query()->select('id')->where('id', $userId)->first() : null;
+        if (!$targetUser) {
+            return redirect()->back()->with('error', __('Target user not found.'));
         }
-        $key = $def ? (string)$def->key : 'test_trophy';
 
-        // Ensure stat exists.
-        UserStat::query()->firstOrCreate(['user_id' => $userId], ['xp_total' => 0, 'level' => 1]);
+        $queued = DB::transaction(function () use ($userId) {
+            $user = \App\User::query()->select('id')->where('id', $userId)->lockForUpdate()->first();
+            if (!$user) {
+                return false;
+            }
 
-        UnlockedAchievement::create([
-            'user_id' => $userId,
-            'achievement_key' => $key,
-            'unlocked_at' => now(),
-            'seen_at' => null,
-            'quote_id' => 'test',
-            'quote_text' => 'This is a test unlock. The universe is weird, enjoy the confetti.',
-            'quote_author' => __('Overflow Achievement'),
-        ]);
+            // Pick a still-locked achievement when possible so the test can be repeated.
+            $def = null;
+            if (Schema::hasTable('overflowachievement_achievements')) {
+                $unlockedKeys = UnlockedAchievement::query()
+                    ->where('user_id', $userId)
+                    ->pluck('achievement_key')
+                    ->all();
+                $query = Achievement::query()->where('is_active', true);
+                if (!empty($unlockedKeys)) {
+                    $query->whereNotIn('key', $unlockedKeys);
+                }
+                $def = $query->inRandomOrder()->first();
+            }
+            $key = $def ? (string)$def->key : 'test_trophy_'.date('YmdHis').'_'.bin2hex(random_bytes(2));
+
+            UserStat::query()->firstOrCreate(['user_id' => $userId], ['xp_total' => 0, 'level' => 1]);
+
+            UnlockedAchievement::create([
+                'user_id' => $userId,
+                'achievement_key' => substr($key, 0, 64),
+                'unlocked_at' => now(),
+                'seen_at' => null,
+                'quote_id' => 'test',
+                'quote_text' => __('This is a test unlock. The universe is weird, enjoy the confetti.'),
+                'quote_author' => __('Overflow Achievement'),
+            ]);
+
+            return true;
+        });
+
+        if (!$queued) {
+            return redirect()->back()->with('error', __('Target user not found.'));
+        }
 
         return redirect()->back()->with('success', __('Test notification queued. Reload as the target user to see it.'));
     }
@@ -444,8 +634,8 @@ class AchievementAdminController extends Controller
             'key' => $def ? (string)$def->key : 'test_trophy',
             'title' => $def ? $def->display_title : __('Test Trophy'),
             'rarity' => $def ? (string)$def->rarity : 'epic',
-            'icon_type' => $def ? (string)$def->icon_type : 'fa',
-            'icon_value' => $def ? (string)$def->icon_value : 'fa-trophy',
+            'icon_type' => $def ? Achievement::resolveIcon($def->icon_type, $def->icon_value, $def->key)['type'] : 'img',
+            'icon_value' => $def ? Achievement::resolveIcon($def->icon_type, $def->icon_value, $def->key)['value'] : 'icon_001.png',
             'quote_text' => __('This is a live preview. If your brain smiles, the UI is doing its job.'),
             'quote_author' => __('Overflow Achievement'),
             'is_level_up' => true,
@@ -495,7 +685,7 @@ class AchievementAdminController extends Controller
         $userIds = $this->resolveTargetUserIds($request, 'repair', false);
 
         if (empty($userIds)) {
-            return redirect()->back()->with('success', __('No user stats found to inspect.'));
+            return redirect()->back()->with('error', __('Target user not found.'));
         }
 
         if ($action === 'repair') {
@@ -509,7 +699,18 @@ class AchievementAdminController extends Controller
             }
 
             $summary = DB::transaction(function () use ($userIds, $invalidOnly) {
-                return $this->buildLevelRepairSummary($userIds, true, $invalidOnly);
+                $lockedUserIds = \App\User::query()
+                    ->select('id')
+                    ->whereIn('id', $userIds)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->pluck('id')
+                    ->map(function ($id) {
+                        return (int)$id;
+                    })
+                    ->all();
+
+                return $this->buildLevelRepairSummary($lockedUserIds, true, $invalidOnly);
             });
 
             $message = __('Repaired :updated of :rows stat rows. Found :invalid mismatched levels among :selected selected users.', [
@@ -540,43 +741,50 @@ class AchievementAdminController extends Controller
         return redirect()->back()->with('success', $message);
     }
 
-    protected function handleIconUpload(Request $request, Achievement $achievement): void
+    protected function handleIconUpload(Request $request, Achievement $achievement): ?string
     {
         $file = $request->file('icon_file');
         $ext = strtolower($file->getClientOriginalExtension() ?: 'png');
 
-        // SECURITY: Do not allow SVG uploads (can embed scripts).
-        if (!in_array($ext, ['png','jpg','jpeg','gif','webp'])) {
-            return;
+        if (!in_array($ext, ['png','jpg','jpeg','gif','webp'], true)) {
+            return __('The uploaded icon type is not allowed.');
         }
 
-        // Keep uploads small; these are icons.
         if (method_exists($file, 'getSize') && (int)$file->getSize() > 512 * 1024) {
-            return;
+            return __('The uploaded icon is too large.');
         }
 
-        // Best-effort MIME check.
         if (method_exists($file, 'getMimeType')) {
             $mime = (string)$file->getMimeType();
             if ($mime && strpos($mime, 'image/') !== 0) {
-                return;
+                return __('The uploaded icon is not a valid image.');
             }
         }
 
-        if (!in_array($ext, ['png','jpg','jpeg','gif','webp'])) {
-            return;
-        }
-
-        $publicDir = public_path('modules/overflowachievement/icons/custom');
-        if (!is_dir($publicDir)) {
-            @mkdir($publicDir, 0775, true);
-        }
-
         $name = $achievement->key.'-'.bin2hex(random_bytes(4)).'-'.time().'.'.$ext;
-        $file->move($publicDir, $name);
+        $path = null;
 
-        $achievement->icon_type = 'img';
-        $achievement->icon_value = '/modules/overflowachievement/icons/custom/'.$name;
-        $achievement->save();
+        try {
+            $path = $file->storeAs('overflowachievement/icons', $name, ['disk' => 'public']);
+            if (!$path) {
+                return __('Achievement saved, but the icon upload failed.');
+            }
+
+            $achievement->icon_type = 'img';
+            $achievement->icon_value = '/storage/'.str_replace('\\', '/', $path);
+            $achievement->save();
+        } catch (\Throwable $e) {
+            \Helper::logException($e);
+            if ($path) {
+                try {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+                } catch (\Throwable $cleanupError) {
+                    \Helper::logException($cleanupError);
+                }
+            }
+            return __('Achievement saved, but the icon upload failed.');
+        }
+
+        return null;
     }
 }

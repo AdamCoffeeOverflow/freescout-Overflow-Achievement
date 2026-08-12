@@ -10,6 +10,12 @@ trait RegistersOverflowAchievementMenu
     {
         $enabled = $this->moduleEnabled();
 
+        \Helper::$menu['overflowachievement'] = [
+            'overflowachievement.my',
+            'overflowachievement.achievements',
+            'overflowachievement.leaderboard',
+        ];
+
         \Eventy::addAction('menu.append', function () use ($enabled) {
             if (!$enabled) {
                 return;

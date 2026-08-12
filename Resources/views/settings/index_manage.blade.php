@@ -1,4 +1,4 @@
-    <div class="text-muted">{{ __('Create, edit, and deactivate trophies. Icons can be FontAwesome classes (fa-trophy) or bundled icon pack images.') }}</div>
+    <div class="text-muted">{{ __('Create, edit, and deactivate trophies. Choose an icon from the bundled pack or upload a custom image.') }}</div>
 
     <div class="alert alert-info" style="margin-top: 12px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
@@ -13,7 +13,7 @@
                     {{ __('I understand this overwrites current trophy icons') }}
                 </label>
                 <button type="submit" class="btn btn-sm btn-primary" style="vertical-align:middle;" data-oa-confirm="{{ __('Re-assign bundled trophy icons for all achievements?') }}">
-                    <i class="fa fa-refresh"></i> {{ __('Re-assign bundled icons') }}
+                    <i class="glyphicon glyphicon-refresh"></i> {{ __('Re-assign bundled icons') }}
                 </button>
             </form>
         </div>
@@ -109,7 +109,7 @@
                                         <optgroup label="{{ $label }}">
                                             @foreach ($groups[$k] as $q)
                                                 @php $id = $q['id']; $txt = (string)($q['text'] ?? ''); @endphp
-                                                <option value="{{ $id }}" data-oa-text="{{ e($txt) }}">{{ $id }} — {{ mb_substr($txt, 0, 80) }}@if(mb_strlen($txt)>80)…@endif</option>
+                                                <option value="{{ $id }}" data-oa-text="{{ $txt }}">{{ $id }} — {{ mb_substr($txt, 0, 80) }}@if(mb_strlen($txt)>80)…@endif</option>
                                             @endforeach
                                         </optgroup>
                                     @endif
@@ -159,11 +159,11 @@
                     </div>
                     <label class="col-sm-2 control-label">{{ __('Icon') }}</label>
                     <div class="col-sm-3">
-                        <input type="text" class="form-control" name="achievement[icon_value]" value="fa-trophy" placeholder="fa-trophy">
-                        <input type="hidden" name="achievement[icon_type]" value="fa">
+                        <input type="text" class="form-control" name="achievement[icon_value]" value="icon_001.png" placeholder="icon_001.png">
+                        <input type="hidden" name="achievement[icon_type]" value="img">
                         <div class="oa-icon-preview" style="margin-top:8px; display:flex; align-items:center; gap:8px;">
                             <span class="text-muted">{{ __('Preview') }}:</span>
-                            <span class="oa-icon-preview-slot" aria-hidden="true"><i class="fa fa-trophy"></i></span>
+                            <span class="oa-icon-preview-slot" aria-hidden="true"><img class="oa-icon-img" alt="" src="{{ \Modules\OverflowAchievement\Entities\Achievement::iconUrl('icon_001.png') }}" /></span>
                         </div>
                     </div>
                     <div class="col-sm-2">
@@ -174,13 +174,13 @@
                 <div class="form-group">
                     <div class="col-sm-10 col-sm-offset-2">
                         <button type="button" class="btn btn-xs btn-default oa-icon-pack-toggle" data-oa-target="oa-icon-pack-create">
-                            <i class="fa fa-th"></i> {{ __('Choose from icon pack') }}
+                            <i class="glyphicon glyphicon-th"></i> {{ __('Choose from icon pack') }}
                         </button>
                         <div id="oa-icon-pack-create" class="oa-icon-pack" style="display:none; margin-top:10px;">
                             @php $base = \Helper::getSubdirectory()."/modules/overflowachievement/icons/pack/"; @endphp
                             @for ($i=1; $i<=100; $i++)
                                 @php $fn = sprintf("icon_%03d.png", $i); $url = $base.$fn; @endphp
-                                <button type="button" class="oa-icon-choice" data-oa-url="{{ $url }}" title="{{ $fn }}">
+                                <button type="button" class="oa-icon-choice" data-oa-url="{{ $url }}" data-oa-icon="{{ $fn }}" title="{{ $fn }}">
                                     <img src="{{ $url }}" alt="" />
                                 </button>
                             @endfor
@@ -308,7 +308,7 @@
                                                             <optgroup label="{{ $label }}">
                                                                 @foreach ($groups[$k] as $q)
                                                                     @php $id = $q['id']; $txt = (string)($q['text'] ?? ''); @endphp
-                                                                    <option value="{{ $id }}" data-oa-text="{{ e($txt) }}" @if($a->quote_id===$id) selected @endif>{{ $id }} — {{ mb_substr($txt, 0, 80) }}@if(mb_strlen($txt)>80)…@endif</option>
+                                                                    <option value="{{ $id }}" data-oa-text="{{ $txt }}" @if($a->quote_id===$id) selected @endif>{{ $id }} — {{ mb_substr($txt, 0, 80) }}@if(mb_strlen($txt)>80)…@endif</option>
                                                                 @endforeach
                                                             </optgroup>
                                                         @endif
@@ -353,19 +353,12 @@
                                             <input type="hidden" name="achievement[icon_type]" value="{{ $a->icon_type }}">
                                             <div class="oa-icon-preview" style="margin-top:8px; display:flex; align-items:center; gap:8px;">
                                                 <span class="text-muted">{{ __('Preview') }}:</span>
+                                                @php
+                                                    $resolved_icon = \Modules\OverflowAchievement\Entities\Achievement::resolveIcon($a->icon_type, $a->icon_value, $a->key);
+                                                    $resolved_icon_url = \Modules\OverflowAchievement\Entities\Achievement::iconUrl($resolved_icon['value']);
+                                                @endphp
                                                 <span class="oa-icon-preview-slot" aria-hidden="true">
-                                                    @if ($a->icon_type==='img')
-                                                        <img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="{{ $a->icon_value }}" />
-                                                    @else
-                                                        @php
-                                                            $fa_raw = $a->icon_value ?: 'fa-trophy';
-                                                            $fa = $fa_raw;
-                                                            if (preg_match('/\bfa-[a-z0-9-]+\b/i', (string)$fa_raw, $m)) {
-                                                                $fa = $m[0];
-                                                            }
-                                                        @endphp
-                                                        <i class="fa {{ $fa }}"></i>
-                                                    @endif
+                                                    <img class="oa-icon-img" alt="" src="{{ $resolved_icon_url }}" />
                                                 </span>
                                             </div>
                                         </div>
@@ -377,13 +370,13 @@
                                     <div class="form-group">
                                         <div class="col-sm-10 col-sm-offset-2">
                                             <button type="button" class="btn btn-xs btn-default oa-icon-pack-toggle" data-oa-target="oa-icon-pack-{{ $a->id }}">
-                                                <i class="fa fa-th"></i> {{ __('Choose from icon pack') }}
+                                                <i class="glyphicon glyphicon-th"></i> {{ __('Choose from icon pack') }}
                                             </button>
                                             <div id="oa-icon-pack-{{ $a->id }}" class="oa-icon-pack" style="display:none; margin-top:10px;">
                                                 @php $base = \Helper::getSubdirectory()."/modules/overflowachievement/icons/pack/"; @endphp
                                                 @for ($i=1; $i<=100; $i++)
                                                     @php $fn = sprintf("icon_%03d.png", $i); $url = $base.$fn; @endphp
-                                                    <button type="button" class="oa-icon-choice" data-oa-url="{{ $url }}" title="{{ $fn }}">
+                                                    <button type="button" class="oa-icon-choice" data-oa-url="{{ $url }}" data-oa-icon="{{ $fn }}" title="{{ $fn }}">
                                                         <img src="{{ $url }}" alt="" />
                                                     </button>
                                                 @endfor

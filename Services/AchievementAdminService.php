@@ -39,10 +39,13 @@ class AchievementAdminService
     public function buildLevelRepairSummary(array $userIds, bool $repair = false, bool $invalidOnly = true): array
     {
         $levelService = new LevelService();
-        $stats = UserStat::query()
+        $statsQuery = UserStat::query()
             ->whereIn('user_id', $userIds)
-            ->orderBy('user_id')
-            ->get(['user_id', 'xp_total', 'level']);
+            ->orderBy('user_id');
+        if ($repair) {
+            $statsQuery->lockForUpdate();
+        }
+        $stats = $statsQuery->get(['user_id', 'xp_total', 'level']);
 
         $summary = [
             'selected_users' => count($userIds),
@@ -77,10 +80,8 @@ class AchievementAdminService
             }
 
             if ($storedLevel !== $expectedLevel) {
-                UserStat::query()->where('user_id', (int) $stat->user_id)->update([
-                    'level' => $expectedLevel,
-                    'updated_at' => now(),
-                ]);
+                $stat->level = $expectedLevel;
+                $stat->save();
                 $summary['updated_rows']++;
             }
         }

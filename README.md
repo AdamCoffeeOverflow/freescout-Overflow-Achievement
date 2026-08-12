@@ -50,11 +50,7 @@ This package is intended to be the **single distribution** for both:
    - `php artisan cache:clear`
 
 ## PostgreSQL
-PostgreSQL is supported.
-
-The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade.
-
-
+The migration that hardens hot-path indexes is designed to be **idempotent** on PostgreSQL (uses `CREATE INDEX IF NOT EXISTS` and runs outside a transaction) to prevent the classic “transaction aborted” cascade. Runtime database support still needs release verification on the exact PostgreSQL version in use; see **Database compatibility** below.
 
 
 ## Localization
@@ -83,3 +79,37 @@ Note: the new locale packs include English fallback quote libraries for now, so 
 ## Compatibility With Freescout Module(s)
 - Teams Module
 - Custom Field Module
+
+## Requirements
+
+- FreeScout 1.8.205 or newer (`requiredAppVersion` in `module.json`).
+- Module source is written to the project's PHP 7.1 syntax floor and Laravel 5.5 APIs.
+- JavaScript uses FreeScout's jQuery/Bootstrap 3 stack; no Node/npm build is required at runtime.
+
+## Configuration and permissions
+
+- Agents can view their own progress, trophies, and the leaderboard when those surfaces are enabled.
+- Achievement/settings administration, user reset/test actions, icon uploads, and level repair are admin-only.
+- Reward mutations re-check the real FreeScout user and mailbox scope before conversation-related awards; posted IDs are never treated as proof of scope.
+
+## Custom trophy icons
+
+Uploaded custom icons are stored on FreeScout's public storage disk under `overflowachievement/icons` and are referenced through `/storage/...`. Keep the normal FreeScout public-storage link available and include `storage/app/public` in backups.
+
+Bundled icon-pack choices are stored by filename, so they remain subdirectory-safe. Older `fa-*` icon values are kept for data compatibility and are rendered using a deterministic bundled-image fallback; Font Awesome is not required.
+
+## Database compatibility
+
+The module is designed to use portable Laravel query/schema APIs and contains PostgreSQL-specific index hardening where needed. **Database compatibility must still be verified on the exact release environment before claiming a tested PostgreSQL, MySQL, or MariaDB matrix.** This source package was not runtime-tested against a database as part of the 2.0.14 source-hardening pass.
+
+## Upgrade and rollback
+
+Before upgrading a production installation, back up the `overflowachievement_*` tables, `storage/app/public/overflowachievement`, and any legacy `Modules/OverflowAchievement/Public/icons/custom` directory if custom icons were uploaded by an older release. Released migrations are preserved rather than rewritten. Some historical normalization migrations are intentionally forward-oriented, so a package downgrade should use a database backup/forward fix instead of assuming every old data normalization can be losslessly reversed.
+
+## Uninstall
+
+Deactivate the module first. If you also want to remove historical gamification data, back up and then remove the module-owned `overflowachievement_*` tables and `storage/app/public/overflowachievement` custom-icon directory. FreeScout core tables are not modified by this module.
+
+## Release verification
+
+For a production release, verify activation and upgrade on the target FreeScout/PHP/database versions, exercise concurrent/repeated reward events, undo an outbound conversation and confirm no proactive-conversation XP remains, test admin reset/repair permissions, and run the user UI at mobile and desktop widths. Missing runtime environments are not treated as a pass.

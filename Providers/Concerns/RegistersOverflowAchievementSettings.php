@@ -25,6 +25,58 @@ trait RegistersOverflowAchievementSettings
             return $view;
         }, 20, 2);
 
+        // Validate every persisted setting before FreeScout writes options.
+        \Eventy::addFilter('settings.section_params', function ($params, $section) {
+            if ($section !== 'achievement') {
+                return $params;
+            }
+
+            $rules = [
+                'settings.overflowachievement\.enabled' => 'required|in:0,1',
+                'settings.overflowachievement\.show_leaderboard' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.show_user_meta' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.confetti' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.sound_enabled' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.toast_sticky' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.toast_stack_enabled' => 'required|in:0,1',
+                'settings.overflowachievement\.ui\.effect' => 'required|in:confetti,fireworks,off',
+                'settings.overflowachievement\.ui\.toast_theme' => 'required|in:neon,dark,classic',
+                'settings.overflowachievement\.ui\.sound_cooldown_ms' => 'required|integer|min:200|max:5000',
+                'settings.overflowachievement\.ui\.toast_duration_ms' => 'required|integer|min:1000|max:120000',
+                'settings.overflowachievement\.ui\.toast_stack_max' => 'required|integer|min:1|max:5',
+                'settings.overflowachievement\.quotes\.mailbox_rules' => 'nullable|json|max:65535',
+            ];
+
+            $integerKeys = [
+                'caps.daily_xp',
+                'xp.close_conversation', 'xp.first_reply', 'xp.note_added', 'xp.assigned',
+                'xp.merged', 'xp.moved', 'xp.forwarded', 'xp.attachment_added',
+                'xp.customer_created', 'xp.customer_updated', 'xp.conversation_created',
+                'xp.subject_changed', 'xp.reply_sent', 'xp.customer_replied', 'xp.set_pending',
+                'xp.marked_spam', 'xp.deleted_conversation', 'xp.customer_merged', 'xp.focus_time',
+                'xp.sla_first_response_ultra', 'xp.sla_first_response_fast',
+                'xp.sla_fast_reply_ultra', 'xp.sla_fast_reply',
+                'xp.sla_resolve_4h', 'xp.sla_resolve_24h',
+                'sla.first_response_ultra_minutes', 'sla.first_response_fast_minutes',
+                'sla.fast_reply_ultra_minutes', 'sla.fast_reply_minutes',
+                'sla.resolve_4h_hours', 'sla.resolve_24h_hours',
+                'limits.note_max_per_conversation_per_day',
+                'limits.attachment_max_per_conversation_per_day',
+                'limits.customer_updates_max_per_day',
+                'limits.reply_max_per_conversation_per_day',
+                'limits.customer_reply_max_per_conversation_per_day',
+                'limits.focus_max_minutes_per_event',
+                'limits.focus_max_minutes_per_conversation_per_day',
+            ];
+
+            foreach ($integerKeys as $key) {
+                $rules['settings.overflowachievement\.'.str_replace('.', '\.', $key)] = 'required|integer|min:0|max:1000000';
+            }
+
+            $params['validator_rules'] = array_merge($params['validator_rules'] ?? [], $rules);
+            return $params;
+        }, 20, 2);
+
         // Provide module option list for SettingsController save().
         \Eventy::addFilter('settings.section_settings', function ($settings, $section) {
             if ($section !== 'achievement') {

@@ -45,32 +45,32 @@
 
             <div class="oa-stat-grid">
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-check"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-ok"></i></div>
                     <div class="oa-stat-label">{{ __('Closes') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->closes_count ?? 0) }}</div>
                 </div>
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-reply"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-share-alt"></i></div>
                     <div class="oa-stat-label">{{ __('Replies') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->first_replies_count ?? 0) }}</div>
                 </div>
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-sticky-note"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-comment"></i></div>
                     <div class="oa-stat-label">{{ __('Notes') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->notes_count ?? 0) }}</div>
                 </div>
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-user"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-user"></i></div>
                     <div class="oa-stat-label">{{ __('Assigned') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->assigned_count ?? 0) }}</div>
                 </div>
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-paperclip"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-paperclip"></i></div>
                     <div class="oa-stat-label">{{ __('Attachments') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->attachments_count ?? 0) }}</div>
                 </div>
                 <div class="oa-stat">
-                    <div class="oa-stat-icon"><i class="fa fa-address-card"></i></div>
+                    <div class="oa-stat-icon"><i class="glyphicon glyphicon-book"></i></div>
                     <div class="oa-stat-label">{{ __('Customers') }}</div>
                     <div class="oa-stat-value">{{ (int)($stat->customers_created_count ?? 0) }}</div>
                 </div>
@@ -87,41 +87,19 @@
                             $title = $is_level ? __('Level Up') : ($def ? $def->display_title : \Modules\OverflowAchievement\Entities\Achievement::translateText('', $key, 'title'));
                             if ($title === '') { $title = $key; }
                             $rarity = $is_level ? 'epic' : ($def ? $def->rarity : 'common');
-                            $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
-                            $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');
+                            $resolved_icon = $is_level ? null : \Modules\OverflowAchievement\Entities\Achievement::resolveIcon(
+                                $def ? $def->icon_type : 'img',
+                                $def ? $def->icon_value : 'icon_001.png',
+                                $key
+                            );
+                            $resolved_icon_url = $resolved_icon ? \Modules\OverflowAchievement\Entities\Achievement::iconUrl($resolved_icon['value']) : '';
                         @endphp
                         <div class="oa-recent-item oa-r-{{ $rarity }}">
                             <div class="oa-recent-icon">
-                                @if ($iconType === 'img' && !empty($iconVal))
-                                    @php
-                                        // Normalize stored icon values to an absolute URL/path that works
-                                        // in subdirectory installs and for icon-pack filenames.
-                                        $v = trim((string)$iconVal);
-                                        $base = \Helper::getSubdirectory();
-                                        if (preg_match('#^https?://#i', $v)) {
-                                            $src = $v;
-                                        } elseif (strpos($v, '/modules/') === 0) {
-                                            $src = $base.$v;
-                                        } elseif (strpos($v, 'modules/') === 0) {
-                                            $src = $base.'/'.$v;
-                                        } elseif (strpos($v, '/') === false) {
-                                            $src = $base.'/modules/overflowachievement/icons/pack/'.$v;
-                                        } elseif ($v !== '' && $v[0] !== '/') {
-                                            $src = $base.'/'.$v;
-                                        } else {
-                                            $src = $base.$v;
-                                        }
-                                    @endphp
-                                    <img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="{{ $src }}" />
+                                @if ($is_level)
+                                    <i class="glyphicon glyphicon-arrow-up"></i>
                                 @else
-                                    @php
-                                        $fa_raw = $iconVal ?: 'fa-trophy';
-                                        $fa = $fa_raw;
-                                        if (preg_match('/\bfa-[a-z0-9-]+\b/i', (string)$fa_raw, $m)) {
-                                            $fa = $m[0];
-                                        }
-                                    @endphp
-                                    <i class="fa {{ $fa }}"></i>
+                                    <img class="oa-icon-img" alt="" src="{{ $resolved_icon_url }}" />
                                 @endif
                             </div>
                             <div class="oa-recent-body">

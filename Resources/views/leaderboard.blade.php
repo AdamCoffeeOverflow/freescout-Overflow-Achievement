@@ -40,9 +40,6 @@
                                             $name = '';
                                             if ($u) {
                                                 $name = trim(($u->first_name ?? '').' '.($u->last_name ?? ''));
-                                                if ($name === '') {
-                                                    $name = (string)($u->email ?? '');
-                                                }
                                             }
                                         @endphp
                                         <tr>
@@ -73,49 +70,24 @@
                                     $title = $is_level ? __('Level Up') : ($def ? $def->display_title : \Modules\OverflowAchievement\Entities\Achievement::translateText('', $key, 'title'));
                                     if ($title === '') { $title = $key; }
                                     $rarity = $is_level ? 'epic' : ($def ? $def->rarity : 'common');
-                                    $iconType = $is_level ? 'fa' : ($def ? $def->icon_type : 'fa');
-                                    $iconVal = $is_level ? 'fa-arrow-up' : ($def ? $def->icon_value : 'fa-trophy');
+                                    $resolved_icon = $is_level ? null : \Modules\OverflowAchievement\Entities\Achievement::resolveIcon(
+                                        $def ? $def->icon_type : 'img',
+                                        $def ? $def->icon_value : 'icon_001.png',
+                                        $key
+                                    );
+                                    $resolved_icon_url = $resolved_icon ? \Modules\OverflowAchievement\Entities\Achievement::iconUrl($resolved_icon['value']) : '';
                                     $u = $users[$row->user_id] ?? null;
                                     $name = '';
                                     if ($u) {
                                         $name = trim(($u->first_name ?? '').' '.($u->last_name ?? ''));
-                                        if ($name === '') {
-                                            $name = (string)($u->email ?? '');
-                                        }
                                     }
                                 @endphp
                                 <div class="oa-feed-item oa-r-{{ $rarity }}">
                                     <div class="oa-feed-icon">
-                                        @if ($iconType === 'img' && !empty($iconVal))
-                                            @php
-                                                // Normalize stored icon values to an absolute URL/path that works
-                                                // in subdirectory installs and for icon-pack filenames.
-                                                $v = trim((string)$iconVal);
-                                                $base = \Helper::getSubdirectory();
-                                                if (preg_match('#^https?://#i', $v)) {
-                                                    $src = $v;
-                                                } elseif (strpos($v, '/modules/') === 0) {
-                                                    $src = $base.$v;
-                                                } elseif (strpos($v, 'modules/') === 0) {
-                                                    $src = $base.'/'.$v;
-                                                } elseif (strpos($v, '/') === false) {
-                                                    $src = $base.'/modules/overflowachievement/icons/pack/'.$v;
-                                                } elseif ($v !== '' && $v[0] !== '/') {
-                                                    $src = $base.'/'.$v;
-                                                } else {
-                                                    $src = $base.$v;
-                                                }
-                                            @endphp
-                                            <img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="{{ $src }}" />
+                                        @if ($is_level)
+                                            <i class="glyphicon glyphicon-arrow-up"></i>
                                         @else
-                                            @php
-                                                $fa_raw = $iconVal ?: 'fa-trophy';
-                                                $fa = $fa_raw;
-                                                if (preg_match('/\bfa-[a-z0-9-]+\b/i', (string)$fa_raw, $m)) {
-                                                    $fa = $m[0];
-                                                }
-                                            @endphp
-                                            <i class="fa {{ $fa }}"></i>
+                                            <img class="oa-icon-img" alt="" src="{{ $resolved_icon_url }}" />
                                         @endif
                                     </div>
                                     <div class="oa-feed-body">

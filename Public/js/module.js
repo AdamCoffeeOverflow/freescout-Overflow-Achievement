@@ -181,8 +181,7 @@ function ensureToastWrap() {
     return base + v;
   }
 
-  // Image icon fallback: if an icon pack image is missing/blocked, swap to a safe FontAwesome icon
-  // (or glyphicon) so cards/toasts/modals never look "half baked".
+  // Image icon fallback: the normal FreeScout UI ships Bootstrap Glyphicons, not Font Awesome.
   function bindIconFallback(root) {
     try {
       var scope = root || document;
@@ -195,12 +194,9 @@ function ensureToastWrap() {
             try {
               if (img.__oaFallbackDone) return;
               img.__oaFallbackDone = true;
-              var fa = img.getAttribute('data-oa-fallback-fa') || 'fa-trophy';
-              var m = String(fa).match(/\bfa-[a-z0-9-]+\b/i);
-              var faClass = (m && m[0]) ? m[0] : 'fa-trophy';
               var span = document.createElement('span');
               span.className = 'oa-icon-fallback';
-              span.innerHTML = '<i class="fa ' + escapeHtml(faClass) + '"></i>';
+              span.innerHTML = '<i class="glyphicon glyphicon-star"></i>';
               if (img.parentNode) {
                 img.parentNode.replaceChild(span, img);
               }
@@ -213,61 +209,42 @@ function ensureToastWrap() {
 
   function iconHtml(item) {
     if (!item) return '<i class="glyphicon glyphicon-star"></i>';
+    if (item.is_level || item.is_level_up) return '<i class="glyphicon glyphicon-arrow-up"></i>';
 
-    // Batch toast: render a "mini collage" of the first few unlocked icons.
-    // This avoids the top-left icon area looking empty/grey when the batch contains
-    // image-based icons and FontAwesome may not be available for the placeholder.
+    // Batch toast: render a mini collage of the first few unlocked icons.
     if (item.is_batch) {
       try {
         var list = (item.batch_items && item.batch_items.length) ? item.batch_items : [];
-        if (!list.length) return '<i class="fa fa-trophy"></i>';
+        if (!list.length) return '<i class="glyphicon glyphicon-star"></i>';
         var max = Math.min(4, list.length);
         var cells = '';
         for (var k = 0; k < max; k++) {
           cells += '<span class="oa-batch-icon-cell">' + iconHtml(list[k] || {}) + '</span>';
         }
-        // If less than 4 items, pad so the grid layout stays consistent.
         for (var p = max; p < 4; p++) {
-          cells += '<span class="oa-batch-icon-cell oa-batch-icon-pad"><i class="fa fa-trophy"></i></span>';
+          cells += '<span class="oa-batch-icon-cell oa-batch-icon-pad"><i class="glyphicon glyphicon-star"></i></span>';
         }
         return '<div class="oa-batch-icon-grid" aria-hidden="true">' + cells + '</div>';
       } catch (e) {
-        return '<i class="fa fa-trophy"></i>';
+        return '<i class="glyphicon glyphicon-star"></i>';
       }
     }
 
     if (item.icon_type === 'img' && item.icon_value) {
       var src = normalizeIconUrl(item.icon_value);
-      return '<img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="' + escapeHtml(src) + '" />';
+      return '<img class="oa-icon-img" alt="" src="' + escapeHtml(src) + '" />';
     }
 
-    // Prefer FontAwesome if available; fallback to glyphicon.
-    // Normalize stored values like "fa fa-trophy" or "fas fa-trophy" into "fa-trophy".
-    var v = String(item.icon_value || 'fa-trophy');
-    var m = v.match(/\bfa-[a-z0-9-]+\b/i);
-    if (m && m[0]) {
-      return '<i class="fa ' + escapeHtml(m[0]) + '"></i>';
-    }
-    if (v.indexOf('fa-') === 0) {
-      return '<i class="fa ' + escapeHtml(v) + '"></i>';
-    }
     return '<i class="glyphicon glyphicon-star"></i>';
   }
 
   // Used by the trophy details modal (and any other UI that stores icon_type/icon_value on DOM nodes).
   function renderIconHtml(iconType, iconValue) {
-    var t = String(iconType || 'fa').toLowerCase();
-    var v = String(iconValue || 'fa-trophy');
+    var t = String(iconType || 'img').toLowerCase();
+    var v = String(iconValue || '');
     if (t === 'img' && v) {
       var src = normalizeIconUrl(v);
-      return '<img class="oa-icon-img" data-oa-fallback-fa="fa-trophy" alt="" src="' + escapeHtml(src) + '" />';
-    }
-    var m = v.match(/\bfa-[a-z0-9-]+\b/i);
-    if (m && m[0]) {
-      return '<i class="fa ' + escapeHtml(m[0]) + '"></i>';
-    }
-    if (v.indexOf('fa-') === 0) {
-      return '<i class="fa ' + escapeHtml(v) + '"></i>';
+      return '<img class="oa-icon-img" alt="" src="' + escapeHtml(src) + '" />';
     }
     return '<i class="glyphicon glyphicon-star"></i>';
   }
@@ -403,11 +380,16 @@ function ensureToastWrap() {
   // If a user navigates away while a toast is visible, the toast disappears AND will not reappear.
   // Solution: keep a small pending queue in sessionStorage and mark seen only after dismissal.
   // v2 stores richer payload: { id, item, stat } so we can render the same content after reload.
-  var OA_STORAGE_KEY = 'overflowachievement_pending_v2';
+  function scopedStorageKey(base) {
+    var userId = getAuthUserId();
+    return base + '_u' + String(userId || 0);
+  }
+
+  var OA_STORAGE_KEY = scopedStorageKey('overflowachievement_pending_v2');
   // Persist UI config too (duration/sticky/theme/effect) so the first toast after reload uses
   // the user's settings instead of falling back to defaults.
-  var OA_UI_KEY = 'overflowachievement_ui_v1';
-  var OA_BOOTSTRAP_KEY = 'overflowachievement_bootstrap_v1';
+  var OA_UI_KEY = scopedStorageKey('overflowachievement_ui_v1');
+  var OA_BOOTSTRAP_KEY = scopedStorageKey('overflowachievement_bootstrap_v1');
   var OA_STORAGE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
   function storageAvailable() {
@@ -668,7 +650,7 @@ var _oaLastKnownStat = null;
 // Persist last-known stat across reloads so the first real unlock after a page load
 // can still animate from the correct starting point (older FreeScout installs
 // often reload full pages between actions).
-var OA_LAST_STAT_KEY = 'overflowachievement_last_stat_v1';
+var OA_LAST_STAT_KEY = scopedStorageKey('overflowachievement_last_stat_v1');
 function readLastStatCache() {
   try {
     var raw = localStorage.getItem(OA_LAST_STAT_KEY);
@@ -890,7 +872,7 @@ function fmtInt(v) {
 function animateNumber(el, from, to, ms) {
   if (!el) return;
   from = fmtInt(from); to = fmtInt(to);
-  if (from === null || to === null) { el.textContent = escapeHtml(String(to === null ? '' : to)); return; }
+  if (from === null || to === null) { el.textContent = String(to === null ? '' : to); return; }
   if (ms <= 0 || from === to) { el.textContent = String(to); return; }
 
   // Cancel any in-flight animation on this element.
@@ -964,8 +946,8 @@ function updateToastContent(toast, item, stat, prevStat) {
     : (isBatch ? t('achievements_unlocked', 'Achievements Unlocked') : t('trophy_unlocked', 'Trophy Unlocked'));
 
   // If title is missing, use the same wording as the headline (better than "Achievement")
-  var safeTitle = escapeHtml((safeItem && safeItem.title) ? safeItem.title : safeHeadline);
-  var safeRarityText = escapeHtml(rarityLabel((safeItem && safeItem.rarity) ? safeItem.rarity : 'common'));
+  var safeTitle = (safeItem && safeItem.title) ? String(safeItem.title) : safeHeadline;
+  var safeRarityText = rarityLabel((safeItem && safeItem.rarity) ? safeItem.rarity : 'common');
 
   try { if ($icon) $icon.innerHTML = iconHtml(safeItem); } catch (e) {}
   try { bindIconFallback(toast); } catch (e) {}
@@ -1587,12 +1569,13 @@ function addToBatch(items, stat, prevStat) {
     $(document).off('click.oaIconChoice').on('click.oaIconChoice', '.oa-icon-choice', function (e) {
       e.preventDefault();
       var url = $(this).data('oaUrl');
-      if (!url) return;
+      var icon = $(this).data('oaIcon');
+      if (!url || !icon) return;
       var $form = $(this).closest('form');
       if (!$form.length) return;
 
       $form.find('input[name="achievement[icon_type]"]').val('img');
-      $form.find('input[name="achievement[icon_value]"]').val(url);
+      $form.find('input[name="achievement[icon_value]"]').val(icon);
 
       // Update preview if present
       var $slot = $form.find('.oa-icon-preview-slot');
@@ -1817,7 +1800,7 @@ function addToBatch(items, stat, prevStat) {
   }
 
   // --- Settings tab persistence (stay on the same tab after saving) ---
-  var OA_SETTINGS_TAB_KEY = 'overflowachievement_settings_tab_v1';
+  var OA_SETTINGS_TAB_KEY = scopedStorageKey('overflowachievement_settings_tab_v1');
   function getQueryParam(name) {
     try {
       var s = window.location.search || '';
@@ -1980,6 +1963,18 @@ function addToBatch(items, stat, prevStat) {
   }
 
 
+  function clearLegacyStorageKeys() {
+    try {
+      window.sessionStorage.removeItem('overflowachievement_pending_v2');
+      window.sessionStorage.removeItem('overflowachievement_ui_v1');
+      window.sessionStorage.removeItem('overflowachievement_bootstrap_v1');
+      window.sessionStorage.removeItem('overflowachievement_settings_tab_v1');
+    } catch (e) {}
+    try {
+      window.localStorage.removeItem('overflowachievement_last_stat_v1');
+    } catch (e2) {}
+  }
+
   function init() {
     initUserInteractionFlag();
 
@@ -1989,6 +1984,8 @@ function addToBatch(items, stat, prevStat) {
     if (isGuestAuthPage()) {
       return;
     }
+
+    clearLegacyStorageKeys();
 
     if (typeof window.OVERFLOWACHIEVEMENT_EFFECT === 'undefined') { window.OVERFLOWACHIEVEMENT_EFFECT = 'confetti'; }
 
@@ -2030,8 +2027,8 @@ function addToBatch(items, stat, prevStat) {
 
     function openFromCard(card) {
       if (!card) return;
-      var iconType = (card.getAttribute('data-oa-icon-type') || 'fa').toLowerCase();
-      var iconValue = card.getAttribute('data-oa-icon-value') || 'fa-trophy';
+      var iconType = (card.getAttribute('data-oa-icon-type') || 'img').toLowerCase();
+      var iconValue = card.getAttribute('data-oa-icon-value') || 'icon_001.png';
       var rarity = (card.getAttribute('data-oa-rarity') || 'common').toLowerCase();
       var title = card.getAttribute('data-oa-title') || '';
       var desc = card.getAttribute('data-oa-desc') || '';

@@ -150,6 +150,40 @@ class TriggerCatalog
         ];
     }
 
+    public static function statFields(): array
+    {
+        return [
+            'close_conversation' => 'closes_count',
+            'first_reply' => 'first_replies_count',
+            'note_added' => 'notes_count',
+            'assigned' => 'assigned_count',
+            'merged' => 'merged_count',
+            'moved' => 'moved_count',
+            'forwarded' => 'forwarded_count',
+            'attachment_added' => 'attachments_count',
+            'customer_created' => 'customers_created_count',
+            'customer_updated' => 'customer_updates_count',
+            'conversation_created' => 'conversations_created_count',
+            'subject_changed' => 'subjects_changed_count',
+            'reply_sent' => 'replies_sent_count',
+            'customer_replied' => 'customer_replies_count',
+            'set_pending' => 'pending_set_count',
+            'marked_spam' => 'spam_marked_count',
+            'deleted_conversation' => 'deleted_count',
+            'customer_merged' => 'customers_merged_count',
+            'focus_time' => 'focus_minutes',
+            'sla_first_response_ultra' => 'sla_first_response_ultra_count',
+            'sla_first_response_fast' => 'sla_first_response_fast_count',
+            'sla_fast_reply_ultra' => 'sla_fast_reply_ultra_count',
+            'sla_fast_reply' => 'sla_fast_reply_count',
+            'sla_resolve_4h' => 'sla_resolve_4h_count',
+            'sla_resolve_24h' => 'sla_resolve_24h_count',
+            'streak_days' => 'streak_current',
+            'xp_total' => 'xp_total',
+            'actions_total' => 'actions_count',
+        ];
+    }
+
     public static function aliases(): array
     {
         return [

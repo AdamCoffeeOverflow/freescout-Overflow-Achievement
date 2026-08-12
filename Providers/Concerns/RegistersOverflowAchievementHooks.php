@@ -9,7 +9,9 @@ protected function registerHooks(): void
         // Award XP on close
         \Eventy::addAction('conversation.status_changed', function ($conversation, $user, $changed_on_reply, $prev_status) {
             try {
-                if (!$user || empty($user->id)) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 if ((int)$conversation->status === (int)\App\Conversation::STATUS_CLOSED
@@ -39,7 +41,7 @@ protected function registerHooks(): void
                     app('overflowachievement.rewards')->awardMarkedSpam((int)$user->id, (int)$conversation->id);
                 }
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: status_changed hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.status_changed', $e);
             }
         }, 10, 4);
 
@@ -47,7 +49,9 @@ protected function registerHooks(): void
         \Eventy::addAction('conversation.user_replied', function ($conversation, $thread) {
             try {
                 $user_id = (int)($thread->created_by_user_id ?? 0);
-                if (!$user_id) {
+                if (!$user_id || !$conversation
+                    || !$this->rewardActorCanAccessConversation($user_id, (int)$conversation->id)
+                ) {
                     return;
                 }
 
@@ -88,7 +92,7 @@ protected function registerHooks(): void
                     // ignore
                 }
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: user_replied hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.user_replied', $e);
             }
         }, 10, 2);
 
@@ -99,26 +103,28 @@ protected function registerHooks(): void
                     return;
                 }
                 $user_id = (int)($conversation->user_id ?? 0);
-                if (!$user_id) {
+                if (!$user_id || !$this->rewardActorCanAccessConversation($user_id, (int)$conversation->id)) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardCustomerReplied($user_id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: customer_replied hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.customer_replied', $e);
             }
         }, 10, 3);
 
         // Award XP for creating a new conversation (outbound/proactive).
-        // FreeScout fires this after undo window is done.
-        \Eventy::addAction('conversation.created_by_user_can_undo', function ($conversation, $thread) {
+        // Use the final delayed hook so an undone send never leaves XP behind.
+        \Eventy::addAction('conversation.created_by_user', function ($conversation, $thread) {
             try {
                 $user_id = (int)($thread->created_by_user_id ?? 0);
-                if (!$user_id || !$conversation) {
+                if (!$user_id || !$conversation
+                    || !$this->rewardActorCanAccessConversation($user_id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardConversationCreated($user_id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: created_by_user_can_undo hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.created_by_user', $e);
             }
         }, 10, 2);
 
@@ -127,19 +133,23 @@ protected function registerHooks(): void
         \Eventy::addAction('conversation.note_added', function ($conversation, $thread) {
             try {
                 $user_id = (int)($thread->created_by_user_id ?? 0);
-                if (!$user_id || !$conversation) {
+                if (!$user_id || !$conversation
+                    || !$this->rewardActorCanAccessConversation($user_id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardNoteAdded($user_id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: note_added hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.note_added', $e);
             }
         }, 10, 2);
 
         // Award XP for assignment changes (taking ownership / reassigning)
         \Eventy::addAction('conversation.user_changed', function ($conversation, $user, $prev_user_id) {
             try {
-                if (!$user || empty($user->id) || !$conversation) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 // FreeScout passes $user as the actor who changed the assignee.
@@ -154,26 +164,30 @@ protected function registerHooks(): void
 
                 app('overflowachievement.rewards')->awardAssigned((int)$user->id, (int)$conversation->id, (int)$prev_user_id, $new_user_id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: user_changed hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.user_changed', $e);
             }
         }, 10, 3);
 
         // Award XP for moving conversations between mailboxes
         \Eventy::addAction('conversation.moved', function ($conversation, $user, $prev_mailbox) {
             try {
-                if (!$user || empty($user->id) || !$conversation) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardMoved((int)$user->id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: moved hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.moved', $e);
             }
         }, 10, 3);
 
         // Award XP for deleting conversations (state changed to deleted).
         \Eventy::addAction('conversation.state_changed', function ($conversation, $user, $prev_state) {
             try {
-                if (!$user || empty($user->id) || !$conversation) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 if ((int)($conversation->state ?? 0) === (int)\App\Conversation::STATE_DELETED
@@ -182,31 +196,35 @@ protected function registerHooks(): void
                     app('overflowachievement.rewards')->awardDeletedConversation((int)$user->id, (int)$conversation->id);
                 }
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: state_changed hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.state_changed', $e);
             }
         }, 10, 3);
 
         // Award XP for subject edits (capped once per conversation per day).
         \Eventy::addAction('conversation.subject_changed', function ($conversation, $user, $prev_subject) {
             try {
-                if (!$user || empty($user->id) || !$conversation) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardSubjectChanged((int)$user->id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: subject_changed hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.subject_changed', $e);
             }
         }, 10, 3);
 
         // Award XP for merges
         \Eventy::addAction('conversation.merged', function ($conversation, $second_conversation, $user) {
             try {
-                if (!$user || empty($user->id) || !$conversation) {
+                if (!$user || empty($user->id) || !$conversation
+                    || !$this->rewardActorCanAccessConversation((int)$user->id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardMerged((int)$user->id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: merged hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.merged', $e);
             }
         }, 10, 3);
 
@@ -214,20 +232,22 @@ protected function registerHooks(): void
         \Eventy::addAction('conversation.user_forwarded', function ($conversation, $thread, $forwarded_conversation, $forwarded_thread) {
             try {
                 $user_id = (int)($thread->created_by_user_id ?? 0);
-                if (!$user_id || !$conversation) {
+                if (!$user_id || !$conversation
+                    || !$this->rewardActorCanAccessConversation($user_id, (int)$conversation->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardForwarded($user_id, (int)$conversation->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: user_forwarded hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.user_forwarded', $e);
             }
         }, 10, 4);
 
         // Award XP for attachments
         \Eventy::addAction('attachment.created', function ($attachment) {
             try {
-                // Attachment model has: created_by_user_id, thread_id; infer conversation if possible
-                $user_id = (int)($attachment->created_by_user_id ?? 0);
+                // FreeScout Attachment stores the uploader in user_id.
+                $user_id = (int)($attachment->user_id ?? 0);
                 if (!$user_id) {
                     return;
                 }
@@ -244,47 +264,58 @@ protected function registerHooks(): void
                         $conversation_id = (int)$thread->conversation_id;
                     }
                 }
-                $rewards->awardAttachmentAdded($user_id, $conversation_id ?: null);
+                if (!$conversation_id || !$this->rewardActorCanAccessConversation($user_id, $conversation_id)) {
+                    return;
+                }
+                $rewards->awardAttachmentAdded($user_id, $conversation_id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: attachment.created hook failed: '.$e->getMessage());
+                $this->logRewardHookException('attachment.created', $e);
             }
         }, 10, 1);
 
-        // Award XP for creating customers (typically done while working)
+        // Award XP for customer changes only when an authenticated FreeScout user
+        // is the current actor. Core Customer does not carry created_by/updated_by user IDs,
+        // and these same hooks also fire from system/inbound paths where no agent should be credited.
         \Eventy::addAction('customer.created', function ($customer) {
             try {
-                $user_id = (int)($customer->created_by_user_id ?? 0);
-                if (!$user_id) {
+                $user = \Auth::user();
+                if (!$user || empty($user->id) || !$customer
+                    || !$this->rewardActorIsEligible((int)$user->id)
+                ) {
                     return;
                 }
-                app('overflowachievement.rewards')->awardCustomerCreated($user_id, (int)$customer->id);
+                app('overflowachievement.rewards')->awardCustomerCreated((int)$user->id, (int)$customer->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: customer.created hook failed: '.$e->getMessage());
+                $this->logRewardHookException('customer.created', $e);
             }
         }, 10, 1);
 
-        // Award XP for updating customers (capped per day)
+        // Award XP for updating customers (capped per day).
         \Eventy::addAction('customer.updated', function ($customer) {
             try {
-                $user_id = (int)($customer->updated_by_user_id ?? 0);
-                if (!$user_id) {
+                $user = \Auth::user();
+                if (!$user || empty($user->id) || !$customer
+                    || !$this->rewardActorIsEligible((int)$user->id)
+                ) {
                     return;
                 }
-                app('overflowachievement.rewards')->awardCustomerUpdated($user_id, (int)$customer->id);
+                app('overflowachievement.rewards')->awardCustomerUpdated((int)$user->id, (int)$customer->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: customer.updated hook failed: '.$e->getMessage());
+                $this->logRewardHookException('customer.updated', $e);
             }
         }, 10, 1);
 
         // Award XP for merging customers.
         \Eventy::addAction('customer.merged', function ($customer, $customer2, $user) {
             try {
-                if (!$user || empty($user->id) || !$customer) {
+                if (!$user || empty($user->id) || !$customer
+                    || !$this->rewardActorIsEligible((int)$user->id)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardCustomerMerged((int)$user->id, (int)$customer->id);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: customer.merged hook failed: '.$e->getMessage());
+                $this->logRewardHookException('customer.merged', $e);
             }
         }, 10, 3);
 
@@ -294,13 +325,64 @@ protected function registerHooks(): void
                 $uid = (int)$user_id;
                 $cid = (int)$conversation_id;
                 $sec = (int)$seconds;
-                if (!$uid || !$cid || $sec <= 0) {
+                if (!$uid || !$cid || $sec <= 0
+                    || !$this->rewardActorCanAccessConversation($uid, $cid)
+                ) {
                     return;
                 }
                 app('overflowachievement.rewards')->awardFocusTime($uid, $cid, $sec);
             } catch (\Throwable $e) {
-                \Log::error('OverflowAchievement: view.finish hook failed: '.$e->getMessage());
+                $this->logRewardHookException('conversation.view.finish', $e);
             }
         }, 10, 3);
+    }
+
+    protected function logRewardHookException(string $hook, \Throwable $e): void
+    {
+        \Log::error('OverflowAchievement: reward hook failed', [
+            'hook' => $hook,
+            'exception' => get_class($e),
+        ]);
+    }
+
+    protected function rewardActorIsEligible(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $user = \App\User::query()->find($userId);
+        if (!$user) {
+            return false;
+        }
+        if (defined('\\App\\User::TYPE_ROBOT') && (int)$user->type === (int)\App\User::TYPE_ROBOT) {
+            return false;
+        }
+        if (defined('\\App\\User::STATUS_ACTIVE') && (int)$user->status !== (int)\App\User::STATUS_ACTIVE) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function rewardActorCanAccessConversation(int $userId, int $conversationId): bool
+    {
+        if (!$this->rewardActorIsEligible($userId) || $conversationId <= 0) {
+            return false;
+        }
+
+        $conversation = \App\Conversation::query()
+            ->select(['id', 'mailbox_id'])
+            ->find($conversationId);
+        if (!$conversation) {
+            return false;
+        }
+
+        $user = \App\User::query()->find($userId);
+        if (!$user) {
+            return false;
+        }
+
+        return (bool)$user->hasAccessToMailbox((int)$conversation->mailbox_id);
     }
 }

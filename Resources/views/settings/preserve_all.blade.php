@@ -21,6 +21,6 @@
                 $preserveValue = json_encode($preserveValue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
         @endphp
-        <input type="hidden" name="settings[{{ $k }}]" value="{{ e((string)$preserveValue) }}" />
+        <input type="hidden" name="settings[{{ $k }}]" value="{{ (string)$preserveValue }}" />
     @endforeach
 @endif
