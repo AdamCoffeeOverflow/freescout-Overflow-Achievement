@@ -44,7 +44,7 @@ trait RegistersOverflowAchievementSettings
                 'settings.overflowachievement\.ui\.sound_cooldown_ms' => 'required|integer|min:200|max:5000',
                 'settings.overflowachievement\.ui\.toast_duration_ms' => 'required|integer|min:1000|max:120000',
                 'settings.overflowachievement\.ui\.toast_stack_max' => 'required|integer|min:1|max:5',
-                'settings.overflowachievement\.quotes\.mailbox_rules' => 'nullable|json|max:65535',
+                'settings.overflowachievement\.quotes\.mailbox_rules' => 'nullable|string|max:65535',
             ];
 
             $integerKeys = [
