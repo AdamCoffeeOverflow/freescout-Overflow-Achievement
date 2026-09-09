@@ -15,12 +15,14 @@ Over 100+ Icon packs for hundreds of trophies
 Over 100+ motivation quotes for each trophies.
 Over 100+ triggers to motivate users to unlock these trophies and compete internally for collecting them!
 
-## Current main — upcoming 2.0.15
+## 2.0.15
 
 - Fixes the PHP 8 `method_exists(null, ...)` fatal that could occur while FreeScout validates an empty mailbox quote-rules setting through Laravel 5.5's legacy `json` rule.
 - Keeps mailbox quote rules normalized by the module before persistence instead of depending on the legacy framework JSON validator.
 - Makes achievement unlock notifications more compact and reduces the oversized blue/purple rarity bloom that could look like a rendering artifact.
-- Source-checked against FreeScout 1.8.239. Live PHP/database/browser verification is still required on the target installation before calling the release runtime-tested.
+- Repairs the historical `2026_02_20_000007_more_triggers_and_counters.php` migration class-name collision reported in issue #21 using a new append-only, idempotent forward migration. The shipped migration is intentionally left unchanged.
+- Restores the seven affected user-stat counters and any missing built-in achievements for those triggers without removing existing progress.
+- Source-checked against the current FreeScout 1.8.239 source. Live PHP/database/browser verification is still required on the target installation before calling the release runtime-tested.
 
 
 ![ezgif-372cdcb9b7825df9](https://github.com/user-attachments/assets/4fd6c65a-50c9-448d-a664-da7293a802fc)
