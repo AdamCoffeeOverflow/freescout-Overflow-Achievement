@@ -15,6 +15,13 @@ Over 100+ Icon packs for hundreds of trophies
 Over 100+ motivation quotes for each trophies.
 Over 100+ triggers to motivate users to unlock these trophies and compete internally for collecting them!
 
+## Current main — upcoming 2.0.15
+
+- Fixes the PHP 8 `method_exists(null, ...)` fatal that could occur while FreeScout validates an empty mailbox quote-rules setting through Laravel 5.5's legacy `json` rule.
+- Keeps mailbox quote rules normalized by the module before persistence instead of depending on the legacy framework JSON validator.
+- Makes achievement unlock notifications more compact and reduces the oversized blue/purple rarity bloom that could look like a rendering artifact.
+- Source-checked against FreeScout 1.8.239. Live PHP/database/browser verification is still required on the target installation before calling the release runtime-tested.
+
 
 ![ezgif-372cdcb9b7825df9](https://github.com/user-attachments/assets/4fd6c65a-50c9-448d-a664-da7293a802fc)
 
@@ -100,7 +107,7 @@ Bundled icon-pack choices are stored by filename, so they remain subdirectory-sa
 
 ## Database compatibility
 
-The module is designed to use portable Laravel query/schema APIs and contains PostgreSQL-specific index hardening where needed. **Database compatibility must still be verified on the exact release environment before claiming a tested PostgreSQL, MySQL, or MariaDB matrix.** This source package was not runtime-tested against a database as part of the 2.0.14 source-hardening pass.
+The module is designed to use portable Laravel query/schema APIs and contains PostgreSQL-specific index hardening where needed. **Database compatibility must still be verified on the exact release environment before claiming a tested PostgreSQL, MySQL, or MariaDB matrix.** This source tree was not runtime-tested against a database as part of the current source-hardening pass.
 
 ## Upgrade and rollback
 
