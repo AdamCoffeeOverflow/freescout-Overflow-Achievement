@@ -5,6 +5,31 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/*
+ * Laravel 5.5 resolves 2026_02_20_000007_more_triggers_and_counters.php
+ * as MoreTriggersAndCounters, while that shipped file declares
+ * MoreTriggersAndCountersV2. On normal affected installs the bad migration is
+ * already recorded, but an administrator may have removed that ledger row while
+ * troubleshooting. All pending migration files are required before migrations
+ * execute, so this no-op compatibility class prevents the old pending migration
+ * from fatalling in that recovery state. On a fresh install 000003 has already
+ * declared the real class and this block does nothing.
+ */
+if (!class_exists('MoreTriggersAndCounters', false)) {
+    class MoreTriggersAndCounters extends Migration
+    {
+        public function up()
+        {
+            // The append-only repair below owns the actual recovery.
+        }
+
+        public function down()
+        {
+            // Compatibility shim only.
+        }
+    }
+}
+
 class RepairMissingV2TriggerCounters extends Migration
 {
     public function up()
